@@ -81,19 +81,29 @@ function mk(host,arr,click){
  for(let i=0;i<5;i++){const e=document.createElement("div");e.className="card";
   e.innerHTML='<div class="in"><div class="face back"><img src="assets/demon.png" alt="" draggable="false"></div><div class="face front"></div></div>';
   if(click){
-   // Only accept a deliberate pointer press that began on this card AFTER
-   // the dealing animation has finished. This prevents a click/tap that
-   // started on DEAL (or during the deal) from carrying onto the left card.
-   let pointerArmed=false;
-   e.addEventListener("pointerdown",ev=>{pointerArmed=phase==="hold"&&ev.isPrimary;});
-   e.addEventListener("pointercancel",()=>{pointerArmed=false;});
-   e.onclick=ev=>{
-    const keyboardActivation=ev&&ev.detail===0;
+   // Handle the full pointer gesture ourselves. A card toggles only when
+   // pointerdown AND pointerup both occur on that same card while in hold
+   // phase. We intentionally do not use click: browsers can retarget a
+   // synthesized click after the deal animation/layout changes.
+   let press=null;
+   const toggle=()=>{
     if(phase!=="hold")return;
-    if(ev&&!keyboardActivation&&!pointerArmed)return;
-    pointerArmed=false;
     sfxClick();held[i]=!held[i];paint();specHolds();
    };
+   e.addEventListener("pointerdown",ev=>{
+    press=(phase==="hold"&&ev.isPrimary&&ev.isTrusted)
+      ?{id:ev.pointerId,target:ev.target}:null;
+   });
+   e.addEventListener("pointerup",ev=>{
+    const valid=press&&phase==="hold"&&ev.isPrimary&&ev.isTrusted&&
+      ev.pointerId===press.id&&e.contains(press.target)&&e.contains(ev.target);
+    press=null;
+    if(valid){ev.preventDefault();toggle();}
+   });
+   e.addEventListener("pointercancel",()=>{press=null;});
+   e.addEventListener("lostpointercapture",()=>{press=null;});
+   e.addEventListener("click",ev=>{ev.preventDefault();ev.stopPropagation();});
+   e._toggleCard=toggle;
   }
   host.appendChild(e);arr.push(e)}
 }
@@ -899,7 +909,7 @@ document.addEventListener("keydown",e=>{
  if(!$("#menu").classList.contains("gone")||cf.classList.contains("on"))return;
  if(e.key===" "||e.code==="Space"){e.preventDefault();if(t&&t.blur&&t.tagName==="BUTTON")t.blur();
   if($("#ov").classList.contains("on"))$("#ov").click();else $("#go").click()}
- else if(/^[1-5]$/.test(e.key)&&!$("#ov").classList.contains("on")){const c=pEls[+e.key-1];if(c&&c.onclick)c.onclick()}
+ else if(/^[1-5]$/.test(e.key)&&!$("#ov").classList.contains("on")){const c=pEls[+e.key-1];if(c&&c._toggleCard)c._toggleCard()}
 });
 document.addEventListener("keyup",e=>{if(e.code==="Space"&&!(e.target.tagName==="INPUT"))e.preventDefault()});
 $("#mBot").disabled=$("#mPvp").disabled=false;$("#mload").textContent="Loading the demon list…";
