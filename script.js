@@ -562,7 +562,7 @@ const rnd=a=>a[Math.random()*a.length|0],roll=p=>Math.random()*100<p,clamp=(v,a,
 let maintenanceOn=false,assetVersionSeen=store.get("gdp_asset_version")||"1";
 function paintMaintenance(on){maintenanceOn=!!on;const el=$("#maintenanceScreen");if(el)el.hidden=!maintenanceOn;document.body.style.overflow=maintenanceOn?"hidden":"";}
 async function checkGlobalControls(){if(!LB)return;try{
- const [m,v]=await Promise.all([lbCall("/config/maintenance.json","GET",null,5000),lbCall("/config/cacheVersion.json","GET",null,5000)]);
+ const [m,v]=await Promise.all([lbCall("/config/maintenanceV2.json","GET",null,5000),lbCall("/config/cacheVersion.json","GET",null,5000)]);
  paintMaintenance(!!(m&&m.enabled));
  if(v!=null&&String(v)!==String(assetVersionSeen)){
   assetVersionSeen=String(v);store.set("gdp_asset_version",assetVersionSeen);
