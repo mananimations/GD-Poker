@@ -48,6 +48,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
  applySfx();applyMus();}
 let ready=Promise.resolve(),levels=[],deck=[],hand=[],dhand=[],held=[],phase="idle",coins=100,bet=5,live=false;
 const pEls=[],dEls=[];
+let cardInputReady=false,cardInputTimer=0;
 $("#pay").innerHTML=Object.values(HANDS).map(h=>`<div><span>${h[0]}</span><b>×${h[1]}</b></div>`).join("");
 $("#barrows").innerHTML=[7,6,5,4,3,2,1,0].map(i=>{const t=TIERS[i];return `<div class="rb${i===7?" ap":""}" style="--c:${t.c}"><b>${t.n}</b><span>${t.r}</span>${i===7?"<em>wins the game!</em>":""}</div>`}).join("");
 const ytId=s=>{const m=String(s).match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/);return m?m[1]:null};
@@ -81,29 +82,31 @@ function mk(host,arr,click){
  for(let i=0;i<5;i++){const e=document.createElement("div");e.className="card";
   e.innerHTML='<div class="in"><div class="face back"><img src="assets/demon.png" alt="" draggable="false"></div><div class="face front"></div></div>';
   if(click){
-   // Handle the full pointer gesture ourselves. A card toggles only when
-   // pointerdown AND pointerup both occur on that same card while in hold
-   // phase. We intentionally do not use click: browsers can retarget a
-   // synthesized click after the deal animation/layout changes.
+   // Strict card targeting: ignore gestures that began before discard mode,
+   // on another element, or outside this card's visible rectangle.
    let press=null;
-   const toggle=()=>{
-    if(phase!=="hold")return;
+   const inside=(ev)=>{
+    const r=e.getBoundingClientRect();
+    return ev.clientX>=r.left&&ev.clientX<=r.right&&ev.clientY>=r.top&&ev.clientY<=r.bottom;
+   };
+   const toggle=(keyboard=false)=>{
+    if(phase!=="hold"||(!keyboard&&!cardInputReady))return;
     sfxClick();held[i]=!held[i];paint();specHolds();
    };
    e.addEventListener("pointerdown",ev=>{
-    press=(phase==="hold"&&ev.isPrimary&&ev.isTrusted)
-      ?{id:ev.pointerId,target:ev.target}:null;
-   });
+    const cardTarget=ev.target===e||e.contains(ev.target);
+    press=(phase==="hold"&&cardInputReady&&ev.isPrimary&&ev.isTrusted&&cardTarget&&inside(ev))
+      ?{id:ev.pointerId,x:ev.clientX,y:ev.clientY}:null;
+   },true);
    e.addEventListener("pointerup",ev=>{
-    const valid=press&&phase==="hold"&&ev.isPrimary&&ev.isTrusted&&
-      ev.pointerId===press.id&&e.contains(press.target)&&e.contains(ev.target);
+    const valid=!!(press&&phase==="hold"&&cardInputReady&&ev.isPrimary&&ev.isTrusted&&
+      ev.pointerId===press.id&&inside(ev));
     press=null;
-    if(valid){ev.preventDefault();toggle();}
-   });
-   e.addEventListener("pointercancel",()=>{press=null;});
-   e.addEventListener("lostpointercapture",()=>{press=null;});
-   e.addEventListener("click",ev=>{ev.preventDefault();ev.stopPropagation();});
-   e._toggleCard=toggle;
+    if(valid){ev.preventDefault();ev.stopPropagation();toggle();}
+   },true);
+   e.addEventListener("pointercancel",()=>{press=null;},true);
+   e.addEventListener("click",ev=>{ev.preventDefault();ev.stopPropagation();},true);
+   e._toggleCard=()=>toggle(true);
   }
   host.appendChild(e);arr.push(e)}
 }
@@ -205,6 +208,7 @@ $("#bp").onclick=()=>{sfxClick();if(!lockBet()&&bet<Math.min(10,coins))$("#bet")
 
 // Deal my five cards and flip them up (shared by bot + player modes)
 async function startRound(h){
+ cardInputReady=false;clearTimeout(cardInputTimer);
  phase="busy";rstage="dealing";$("#go").disabled=true;$("#table").classList.remove("done");
  if(coins<bet){coins=100;bet=Math.min(bet,5);$("#bet").textContent=bet;say("Out of coins! Fresh stack on the house.")}
  coins-=bet;$("#coins").textContent=coins;$("#win").textContent=0;$("#pn").textContent=$("#dn").textContent="";
@@ -215,7 +219,9 @@ async function startRound(h){
  await Promise.all(hand.map(ensure));
  await Promise.all(pEls.map((e,i)=>flip(e,hand[i],i*140)));
  await sleep(500);if(hand.some(c=>c.position===1)){await sleep(1100);await showOv(APEXMSG)}
- phase="hold";paint();$("#pn").textContent=evalHand(hand).txt;
+ phase="hold";held=[true,true,true,true,true];paint();$("#pn").textContent=evalHand(hand).txt;
+ // Do not let a lingering pointer/touch release from DEAL or the deal animation select a card.
+ cardInputTimer=setTimeout(()=>{if(phase==="hold")cardInputReady=true;},450);
  rstage="holding";specPush();
  $("#go").textContent="DRAW";$("#go").disabled=false;say("All cards are held. Tap any card you want to DISCARD, then DRAW!");
 }
@@ -259,7 +265,7 @@ function finishMatch(){
  setTimeout(()=>location.reload(),7000);
 }
 const repIdx=()=>[0,1,2,3,4].filter(i=>!held[i]);
-const lockDraw=()=>{phase="busy";rstage="drawing";$("#go").disabled=true;pEls.forEach(e=>e.classList.remove("hold","dis","on"))};
+const lockDraw=()=>{cardInputReady=false;clearTimeout(cardInputTimer);phase="busy";rstage="drawing";$("#go").disabled=true;pEls.forEach(e=>e.classList.remove("hold","dis","on"))};
 
 // ---- vs BOT
 async function botDeal(){
