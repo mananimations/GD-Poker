@@ -7,6 +7,13 @@
  <div id="mbox">
   <h1>★ DEMON PICTURE POKER ★</h1>
   <div id="m-main" class="mscr">
+   <div id="pf">
+    <div id="pfimg">?</div>
+    <div class="pfc"><b>Profile picture <em>(optional)</em></b>
+     <span>Your opponent sees it instead of the shopkeeper.</span>
+     <div><label class="link">Choose picture<input type="file" id="pfile" accept="image/*" hidden></label> <button class="link" id="pfclear" hidden>remove</button></div>
+    </div>
+   </div>
    <p>Choose how you want to play</p>
    <button class="btn big" id="mBot" disabled>🤖 PLAY VS BOT</button>
    <button class="btn big alt" id="mPvp" disabled>👥 PLAY VS PLAYER</button>
@@ -15,13 +22,34 @@
   <div id="m-name" class="mscr" hidden>
    <p>Type your name</p>
    <input id="mname" type="text" maxlength="14" placeholder="Your name" autocomplete="off">
-   <button class="btn big" id="mFind">FIND A MATCH</button>
+   <button class="btn big" id="mFind">ENTER LOBBY</button>
    <button class="link" id="mBack1">← back</button>
   </div>
+  <div id="m-lobby" class="mscr" hidden>
+   <p>Lobby: pick a room</p>
+   <div id="rlist" class="rlist"></div>
+   <div id="lerr" class="err"></div>
+   <div id="jpw" hidden><span>Password for <b id="jpwn"></b>'s room</span><input id="jpwi" type="password" placeholder="Password" autocomplete="off"><button class="btn sm" id="jpwgo">JOIN</button><button class="link" id="jpwx">cancel</button></div>
+   <div class="mk">
+    <b>Or make your own room</b>
+    <label><input type="checkbox" id="mklock"> Lock it with a password</label>
+    <input id="mkpw" type="text" maxlength="20" placeholder="Room password" autocomplete="off" hidden>
+    <button class="btn big alt" id="mkgo">＋ CREATE ROOM</button>
+   </div>
+   <button class="link" id="mBack2">← leave lobby</button>
+  </div>
   <div id="m-wait" class="mscr" hidden>
-   <p id="mwait">Waiting for another player to join…</p>
+   <p id="mwait">Connecting…</p>
    <div class="dots"><i></i><i></i><i></i></div>
-   <small>Ask a friend to open this page and choose PLAY VS PLAYER.</small>
+   <div id="wroom" hidden>
+    <small>Your room is open. Ask a friend to open this page and join it.</small>
+    <div class="mk">
+     <label><input type="checkbox" id="wlock"> Lock with a password</label>
+     <div class="mkr"><input id="wpw" type="text" maxlength="20" placeholder="Room password" autocomplete="off" hidden><button class="btn sm" id="wset" hidden>SET</button></div>
+     <span id="wst"></span>
+    </div>
+    <div id="w2" hidden><b>Or join an existing room:</b><div id="rlist2" class="rlist"></div></div>
+   </div>
    <button class="link" id="mCancel">cancel</button>
   </div>
  </div>
@@ -30,17 +58,17 @@
 <div id="table">
  <div id="dealer"><div id="av"><img id="dimg" alt="Dealer" src="assets/dealer.png"><div id="dname">Dealer</div></div><div id="say">Loading demons…</div></div>
  <div class="lbl" id="dlbl">DEALER'S HAND</div><div class="row" id="drow"></div><div class="hn" id="dn"></div>
- <div class="lbl">YOUR HAND</div><div class="row" id="prow"></div><div class="hn" id="pn"></div>
+ <div class="lbl"><img id="myav" alt="" hidden><span id="mylbl">YOUR HAND</span></div><div class="row" id="prow"></div><div class="hn" id="pn"></div>
 </div>
 <div id="hud">
  <div class="box">COINS <b id="coins">100</b></div>
  <div class="box bet">BET <button id="bm">−</button> <b id="bet">5</b> <button id="bp">+</button></div>
  <div class="box">WIN <b id="win">0</b></div>
- <div class="box snd"><button id="snd" title="Sound effects">🔊</button><button id="mus" title="Music">🎵</button></div>
+ <div class="box snd"><label title="Sound effects volume">🔊 <input type="range" id="sfxv" min="0" max="100" value="70"></label><label title="Music volume">🎵 <input type="range" id="musv" min="0" max="100" value="35"></label></div>
  <button class="btn" id="go" disabled>DEAL</button>
  <button class="btn sm" id="leave" title="Back to menu">MENU</button>
 </div>
-<div id="ov"><div id="ovb"><p></p><small>click to continue</small></div></div><div id="ytp"></div><div id="st"></div></div>
+<div id="ov"><div id="ovb"><p></p><small>click to continue</small></div></div><div id="cf"><div id="cfb"><p>Leave the game?</p><small>You will be taken back to the menu and the current match will end.</small><div class="cfr"><button class="btn" id="cfstay">STAY</button><button class="btn alt" id="cfleave">LEAVE</button></div></div></div><div id="ytp"></div><div id="st"></div></div>
 <div id="side"><aside id="rules">
  <h2>HOW TO PLAY</h2>
  <ol><li>Set your bet (1–10 coins) and press <b>DEAL</b>.</li>
