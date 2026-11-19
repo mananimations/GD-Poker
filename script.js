@@ -97,10 +97,57 @@ async function replaceCard(e,c,delay,faceUp,dir){
  sfxFlip();e.style.translate="0 0";e.style.opacity="1";await sleep(580); // slide new card on
  if(faceUp){await sleep(120);e.classList.add("up");c.position===1?sfxApex():sfxFlip()}            // flip to reveal
 }
-function dealerPick(h){
+// ---- Bot difficulty levels
+const DIFFS={
+ pussy:{label:"Pussy",say:"Pussy bot: it barely knows the rules."},
+ easy:{label:"Easy",say:"Easy bot."},
+ medium:{label:"Medium",say:"Medium bot."},
+ hard:{label:"Hard",say:"Hard bot."},
+ insane:{label:"Insane",say:"Insane bot."},
+ mogger:{label:"Mogger",say:"Mogger bot is locked in."}};
+let diff="medium";
+const apexN=h=>h.filter(c=>c.position===1).length;
+// +1 if hand a beats hand b, -1 if it loses, 0 for a draw (same rules as the showdown)
+function versus(a,b){const x=apexN(a),y=apexN(b);return(x||y)?Math.sign(x-y):cmp(evalHand(a).score,evalHand(b).score)}
+// Basic strategy: keep any matching rarities and the #1 card; with nothing, keep the rarest cards
+function basicPick(h){
  const t=h.map(c=>tierOf(c.position)),cnt={};t.forEach(x=>cnt[x]=(cnt[x]||0)+1);
  let keep=t.map((x,i)=>cnt[x]>1||h[i].position===1);
  if(!keep.some(Boolean)){const m=Math.max(...t);keep=t.map(x=>x===m||x>=5)}
+ return keep;
+}
+const randKeep=(p=.5)=>[0,1,2,3,4].map(()=>Math.random()<p);
+// Look at every possible hold (32 of them), simulate the draws from the unseen cards, and pick the best.
+// objective(finalHand) -> number. Common random numbers: every hold is scored on the same simulated draws.
+function searchKeep(h,pool,trials,objective){
+ const n=pool.length,draws=[];
+ for(let t=0;t<trials;t++){const used=new Set(),d=[];while(d.length<5){const i=Math.random()*n|0;if(!used.has(i)){used.add(i);d.push(pool[i])}}draws.push(d)}
+ let best=null,bs=-Infinity;
+ for(let m=0;m<32;m++){
+  const keep=[0,1,2,3,4].map(i=>!!(m>>i&1)),kept=h.filter((_,i)=>keep[i]),k=5-kept.length;let sum=0;
+  for(let t=0;t<trials;t++)sum+=objective(kept.concat(draws[t].slice(0,k)));
+  const sc=sum/trials+Math.random()*1e-9;if(sc>bs){bs=sc;best=keep}
+ }
+ return best;
+}
+// Payout-style value of a hand when the bot can't see (or doesn't use) the player's hand
+const handValue=x=>apexN(x)?1000*apexN(x):evalHand(x).mult+evalHand(x).tier/100;
+// Returns the indices the bot discards. `mine` = bot hand, `theirs` = player's final hand, `pool` = unseen cards
+function botPick(mine,theirs,pool){
+ let keep;
+ switch(diff){
+  case"pussy": // random nonsense, and sometimes deliberately keeps the WORST cards
+   if(Math.random()<.5)keep=randKeep();
+   else{const o=mine.map((c,i)=>i).sort((a,b)=>mine[b].position-mine[a].position),k=Math.random()*4|0;keep=[0,0,0,0,0].map(()=>false);o.slice(0,k).forEach(i=>keep[i]=true)}
+   break;
+  case"easy": keep=Math.random()<.4?randKeep(.6):basicPick(mine);break;
+  case"medium": keep=Math.random()<.15?randKeep(.7):basicPick(mine);break;
+  case"hard": keep=Math.random()<.04?basicPick(mine):searchKeep(mine,pool,40,handValue);break;
+  case"insane": // sees your final hand and plays to beat it, fewer simulations than Mogger
+   keep=searchKeep(mine,pool,250,x=>versus(x,theirs));break;
+  default: // mogger: exact-ish search against your real hand, no mistakes
+   keep=searchKeep(mine,pool,3000,x=>versus(x,theirs));
+ }
  return keep.map((k,i)=>k?-1:i).filter(i=>i>=0);
 }
 function paint(){pEls.forEach((e,i)=>{e.classList.toggle("on",phase==="hold");e.classList.toggle("hold",phase==="hold"&&held[i]);e.classList.toggle("dis",phase==="hold"&&!held[i])})}
@@ -180,8 +227,8 @@ async function botDeal(){
 async function botDraw(){
  lockDraw();const rep=repIdx();if(!rep.length)say("Standing pat!");
  await applyMyDraw(rep,rep.map(()=>deck.shift()));
- say(`${OPP}'s turn…`);await sleep(800);
- const dd=dealerPick(dhand);
+ say(`${OPP}'s turn…`);await sleep(diff==="mogger"?200:800);
+ const dd=botPick(dhand,hand,deck);
  dd.forEach(i=>{dhand[i]=deck.shift()});
  await oppDiscard(dd);
  await showdown(dhand);
@@ -431,8 +478,12 @@ $("#cropok").onclick=()=>{
 $("#pfclear").onclick=()=>{sfxClick();setPic(null);["dpp_pic","dpp_picsrc","dpp_crop"].forEach(store.del)};
 // the bot's dealer is a random character each time you start a bot game
 const CHARS=[{n:"Shopkeeper",i:null},{n:"The Wizard Grandmaster",i:"assets/chars/wizard.png"},{n:"The Biger F",i:"assets/chars/biger-f.png"},{n:"Npesta",i:"assets/chars/npesta.png"}];
-$("#mBot").onclick=async()=>{sfxClick();startMusic();await ready;mode="bot";
- const c=CHARS[Math.random()*CHARS.length|0];OPP=c.n;enterGame(`${OPP} is your dealer. Press DEAL to start.`,c.i,!!c.i)};
+$("#mBot").onclick=()=>{sfxClick();startMusic();scr("m-diff")};
+$("#mBack3").onclick=()=>{sfxClick();scr("m-main")};
+document.querySelectorAll(".dbtn").forEach(b=>b.onclick=async()=>{sfxClick();await ready;mode="bot";diff=b.dataset.d;
+ const c=CHARS[Math.random()*CHARS.length|0],D=DIFFS[diff];OPP=c.n;enterGame(`${OPP} is your dealer (${D.label}). Press DEAL to start.`,c.i,!!c.i);
+ $("#dlbl").textContent=`${OPP}'s hand · ${D.label}`;
+ if(live){$("#st").className="";$("#st").textContent=`Bot difficulty: ${D.label}. ${D.say}`}});
 $("#mPvp").onclick=()=>{sfxClick();startMusic();scr("m-name");$("#mname").focus()};
 $("#mBack1").onclick=()=>{sfxClick();scr("m-main")};
 const goLobby=async()=>{
