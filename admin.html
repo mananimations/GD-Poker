@@ -423,15 +423,27 @@ function renderLive(d){
  if(!order.length)list.append(h("div",{class:"panel empty-msg",text:query?"No games match that player search.":"No games being played right now. Games appear here the moment a player deals."}));
  $("#lcount").textContent=`${live} live${staleIds.length?" · "+staleIds.length+" stale":""}${query?" · "+matched+" matching":""}`}
 async function endOneGame(mid,g){
- if(!await confirmBox("End this game?",`This will immediately remove the game between ${g.a&&g.a.name||"Player A"} and ${g.b&&g.b.name||"Player B"}. Players will no longer be able to continue it.`,"End game",true))return;
- try{await api("/live/"+encodeURIComponent(mid)+".json","PUT",null);LIVE.delete(mid);await audit("end_game",mid);toast("Game ended");pollLive()}catch(e){fail(e,"End game")}}
+ if(!await confirmBox("End this game?",`This will kick ${g.mode==="pvp"?"both players":"the player"} out of the game between ${g.a&&g.a.name||"Player A"} and ${g.b&&g.b.name||"Player B"}.`,"End game",true))return;
+ try{
+  const id=encodeURIComponent(mid);
+  // Publish the termination flag before removing the live-game record so clients can detect it.
+  await api("/ended/"+id+".json","PUT",true);
+  await api("/live/"+id+".json","PUT",null);
+  LIVE.delete(mid);await audit("end_game",mid);toast("Game ended; players removed");pollLive()
+ }catch(e){fail(e,"End game")}}
 async function endEveryGame(){
  let current;try{current=await api("/live.json")||{}}catch(e){return fail(e,"Load live games")}
  const ids=Object.keys(current).filter(k=>current[k]&&typeof current[k]==="object");
  if(!ids.length)return toast("There are no games to end");
- if(!await confirmBox("End every game?",`This will immediately end all ${ids.length} game(s), including stale games. This cannot be undone.`,"End all games",true))return;
- const patch={};ids.forEach(id=>patch[id]=null);
- try{await api("/live.json","PATCH",patch);ids.forEach(id=>LIVE.delete(id));await audit("end_all_games",ids.length+" games");toast("Ended "+ids.length+" game(s)");pollLive()}catch(e){fail(e,"End all games")}}
+ if(!await confirmBox("End every game?",`This will kick all players out of ${ids.length} game(s), including stale games. This cannot be undone.`,"End all games",true))return;
+ try{
+  await Promise.all(ids.map(async id=>{
+   const key=encodeURIComponent(id);
+   await api("/ended/"+key+".json","PUT",true);
+   await api("/live/"+key+".json","PUT",null);
+  }));
+  ids.forEach(id=>LIVE.delete(id));await audit("end_all_games",ids.length+" games");toast("Ended "+ids.length+" game(s); players removed");pollLive()
+ }catch(e){fail(e,"End all games")}}
 async function pollLive(){
  if(!S.tok||tab!=="live"||document.hidden||liveBusy)return;liveBusy=true;
  try{renderLive(await api("/live.json"));setConn(true)}catch(e){setConn(false);console.error(e)}liveBusy=false}

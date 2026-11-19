@@ -656,11 +656,26 @@ function specBody(){
   ts:{".sv":"timestamp"}};
 }
 function specPush(){ // debounced; in PvP only the host publishes (it knows both hands)
- if(!LB||!dcUser||rstage==="menu"||(mode==="pvp"&&net.role!=="host"))return;
+ if(adminEnded||!LB||!dcUser||rstage==="menu"||(mode==="pvp"&&net.role!=="host"))return;
  clearTimeout(specTimer);specTimer=setTimeout(()=>{specOn=true;lbCall(fbp("live",SPEC_ID),"PUT",specBody(),4000).catch(()=>{})},300);
 }
 const specHolds=()=>{if(mode==="pvp"&&net.role==="guest")send({t:"holds",h:held});else specPush()};
+let adminEndCheckBusy=false,adminEnded=false;
+function handleAdminGameEnd(){
+ if(adminEnded)return;adminEnded=true;specOn=false;clearTimeout(specTimer);
+ // Tell the other PvP player to leave too, then close the peer connection.
+ if(net.started){try{send({t:"bye"})}catch(e){}net.started=false;clearInterval(net.hb);try{net.conn&&net.conn.close()}catch(e){}}
+ showOv("An admin ended this game.","click to return to the menu",()=>location.reload());
+ setTimeout(()=>location.reload(),5000);
+}
+async function checkAdminGameEnd(){
+ if(adminEndCheckBusy||adminEnded||!LB||!dcUser||rstage==="menu")return;
+ adminEndCheckBusy=true;
+ try{if(await lbCall(fbp("ended",SPEC_ID),"GET",null,4000)===true)handleAdminGameEnd()}
+ catch(e){}finally{adminEndCheckBusy=false}
+}
 setInterval(()=>{if(specOn)specPush()},20000); // heartbeat so the admin can tell live games from stale ones
+setInterval(checkAdminGameEnd,1500); // watch for an admin termination signal while in a game
 addEventListener("pagehide",()=>{if(!specOn)return;specOn=false;try{fetch(LB+fbp("live",SPEC_ID),{method:"DELETE",keepalive:true})}catch(e){}});
 // ---- Account settings screen
 const MOT_KEY="dpp_motion",DATA_KEYS=["dpp_dc","dpp_sfx","dpp_mus",MOT_KEY];
