@@ -154,10 +154,10 @@ h1{margin:0 0 8px;text-align:center;font-size:clamp(20px,4vw,30px);color:var(--g
  padding:14px;
 }
 #mcardday>*{align-self:center;text-align:center}
-#mcardday .card{width:min(100%,130px);flex:none}
+#mcardday .card{width:min(100%,175px);flex:none}
 #mcardday #dailyname{font-size:13px;color:var(--txt)}
 #mcardday #dailydate{font-size:11px}
-@media(max-width:900px){.mstack{gap:14px}#mcardday .card{width:110px}}
+@media(max-width:900px){.mstack{gap:14px}#mcardday .card{width:145px}}
 #dcuser{display:flex;flex-direction:column;align-items:center;gap:10px;margin:10px 0}#dcuser b{font-size:22px;word-break:break-word}
 #dcav{width:110px;height:110px;border-radius:50%;object-fit:cover;border:4px solid #5865F2;background:var(--ink)}
 #stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
