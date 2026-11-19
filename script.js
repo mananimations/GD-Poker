@@ -839,6 +839,47 @@ ready=load().catch(e=>{levels=FB.map((n,i)=>({id:"f"+i,name:n,position:FBP[i]}))
 (function initSiteControlWatcher(){
  const VER_KEY="gdpoker_cache_ver";
  let wasLocked=false;
+ let savedMenuEl=null;
+ let menuPlaceholder=null;
+
+ function applyMaintenanceState(locked){
+  const lockEl=document.getElementById("maint-lock");
+  if(lockEl){
+   lockEl.hidden=!locked;
+   lockEl.style.display=locked?"flex":"none";
+  }
+  if(locked){
+   const menuEl=document.getElementById("menu");
+   if(menuEl){
+    menuEl.hidden=true;
+    menuEl.style.display="none";
+    if(!savedMenuEl){
+     savedMenuEl=menuEl;
+     menuPlaceholder=document.createComment("menu-unloaded");
+     if(menuEl.parentNode)menuEl.parentNode.replaceChild(menuPlaceholder,menuEl);
+    }
+   }
+   if(!wasLocked){
+    wantPlay=false;
+    try{bgm.pause()}catch(e){}
+   }
+  }else{
+   if(savedMenuEl&&menuPlaceholder&&menuPlaceholder.parentNode){
+    menuPlaceholder.parentNode.replaceChild(savedMenuEl,menuPlaceholder);
+    menuPlaceholder=null;
+   }
+   const menuEl=savedMenuEl||document.getElementById("menu");
+   if(menuEl){
+    menuEl.hidden=false;
+    menuEl.style.display="";
+   }
+   savedMenuEl=null;
+  }
+  wasLocked=locked;
+ }
+
+ // Disabled by default on initial load
+ applyMaintenanceState(false);
 
  async function checkSiteControl(){
   try{
@@ -846,15 +887,9 @@ ready=load().catch(e=>{levels=FB.map((n,i)=>({id:"f"+i,name:n,position:FBP[i]}))
    if(!r.ok)return;
    const cfg=(await r.json())||{};
 
-   // 1. Maintenance lock
+   // 1. Maintenance lock (default false unless strictly true)
    const locked=cfg.maintenance===true;
-   const lockEl=document.getElementById("maint-lock");
-   if(lockEl)lockEl.hidden=!locked;
-   if(locked&&!wasLocked){
-    wantPlay=false;
-    try{bgm.pause()}catch(e){}
-   }
-   wasLocked=locked;
+   applyMaintenanceState(locked);
 
    // 2. Remote cache clear
    if(cfg.cacheVersion){
