@@ -278,12 +278,12 @@ async function botDeal(){
 async function botDraw(){
  lockDraw();const rep=repIdx();if(!rep.length)say("Standing pat!");
  const fresh=drawNew(hand,rep,true),finalHand=hand.slice();rep.forEach((i,k)=>{finalHand[i]=fresh[k]});
- if(rep.length)tuneLuck(finalHand,playerLuck);
+ if(rep.length)tuneLuck(finalHand,playerLuck,rep);
  const changed=finalHand.map((c,i)=>c!==hand[i]?i:-1).filter(i=>i>=0);
  await applyMyDraw(changed,changed.map(i=>finalHand[i]));
  say(`${OPP}'s turn…`);await sleep(diff==="mogger"?200:800);
  const dd=botPick(dhand,hand,deck);
- dd.forEach(i=>{dhand[i]=deck.shift()});if(dd.length)tuneLuck(dhand,botLuck);specPush();
+ dd.forEach(i=>{dhand[i]=deck.shift()});if(dd.length)tuneLuck(dhand,botLuck,dd);specPush();
  await oppDiscard(dd);
  await showdown(dhand);
 }
@@ -660,27 +660,44 @@ function drawNew(h,rep,boost){
  if(!boost||!pwOn()||!rep.length)return cs;
  const fin=h.slice();rep.forEach((i,k)=>{fin[i]=cs[k]});powerHand(fin,rep);return rep.map(i=>fin[i]);
 }
-// Luck gently changes the rarity distribution and the chance of matching card tiers.
-// Cards are swapped with the undealt deck so a card can never appear twice.
-function tuneLuck(h,luck){
+// Luck gently changes rarity and matching odds ONLY in slots being dealt/re-dealt.
+// A kept card is immutable: this function never swaps or replaces a slot outside `eligibleSlots`.
+function tuneLuck(h,luck,eligibleSlots){
  if(!h||!deck.length||luck==="normal")return h;
+ const eligible=new Set((eligibleSlots||h.map((_,i)=>i)).filter(i=>Number.isInteger(i)&&i>=0&&i<h.length));
+ if(!eligible.size)return h;
  const pull=fn=>{const i=deck.findIndex(fn);return i<0?null:deck.splice(i,1)[0]};
- const replace=(slot,fn)=>{const c=pull(fn);if(!c)return false;deck.push(h[slot]);h[slot]=c;return true};
+ const replace=(slot,fn)=>{
+  if(!eligible.has(slot))return false;
+  const c=pull(fn);if(!c)return false;
+  deck.push(h[slot]);h[slot]=c;return true;
+ };
  const counts=()=>{const o={};h.forEach(c=>{const t=tierOf(c.position);o[t]=(o[t]||0)+1});return o};
+ const slots=[...eligible];
  if(luck==="good"){
-  // Improve the chance of drawing rarer cards without guaranteeing an Apex.
-  const rareSlots=h.map((c,i)=>({c,i})).filter(x=>x.c.position>1&&tierOf(x.c.position)<3).map(x=>x.i);
+  // Improve rarity only among cards that were just dealt into replaceable slots.
+  const rareSlots=slots.filter(i=>h[i].position>1&&tierOf(h[i].position)<3);
   if(rareSlots.length&&Math.random()<.62)replace(rnd(rareSlots),c=>c.position>1&&tierOf(c.position)>=3);
-  // Encourage a pair or extend an existing matching group.
+  // Match a kept group by changing only one of the newly dealt slots.
   const ct=counts(),group=Object.entries(ct).filter(([t,n])=>+t<7&&n>=2&&n<4).sort((a,b)=>b[1]-a[1]);
-  if(group.length&&Math.random()<.72){const t=+group[0][0],slots=h.map((c,i)=>tierOf(c.position)!==t&&c.position!==1?i:-1).filter(i=>i>=0);if(slots.length)replace(rnd(slots),c=>tierOf(c.position)===t&&c.position!==1)}
-  else if(!group.length&&Math.random()<.38){const slots=h.map((c,i)=>c.position!==1?i:-1).filter(i=>i>=0);if(slots.length){const target=rnd(h.filter(c=>c.position!==1));replace(rnd(slots),c=>tierOf(c.position)===tierOf(target)&&c.position!==1)}}
+  if(group.length&&Math.random()<.72){
+   const t=+group[0][0],matchSlots=slots.filter(i=>tierOf(h[i].position)!==t&&h[i].position!==1);
+   if(matchSlots.length)replace(rnd(matchSlots),c=>tierOf(c.position)===t&&c.position!==1);
+  }else if(!group.length&&Math.random()<.38){
+   const candidates=h.filter(c=>c.position!==1);if(candidates.length){
+    const target=candidates[rnd(candidates.length)],matchSlots=slots.filter(i=>h[i].position!==1);
+    if(matchSlots.length)replace(rnd(matchSlots),c=>tierOf(c.position)===tierOf(target)&&c.position!==1);
+   }
+  }
  }else{
-  // Bad luck favors common cards and can break a matching group.
-  const rareSlots=h.map((c,i)=>({c,i})).filter(x=>x.c.position>1&&tierOf(x.c.position)>=3).map(x=>x.i);
+  // Bad luck can lower rarity or weaken a match only in newly dealt slots.
+  const rareSlots=slots.filter(i=>h[i].position>1&&tierOf(h[i].position)>=3);
   if(rareSlots.length&&Math.random()<.68)replace(rnd(rareSlots),c=>c.position>=750);
   const ct=counts(),group=Object.entries(ct).filter(([t,n])=>+t<7&&n>=2).sort((a,b)=>b[1]-a[1]);
-  if(group.length&&Math.random()<.58){const t=+group[0][0],slots=h.map((c,i)=>tierOf(c.position)===t&&c.position!==1?i:-1).filter(i=>i>=0);if(slots.length)replace(rnd(slots),c=>tierOf(c.position)!==t&&c.position>=500)}
+  if(group.length&&Math.random()<.58){
+   const t=+group[0][0],groupSlots=slots.filter(i=>tierOf(h[i].position)===t&&h[i].position!==1);
+   if(groupSlots.length)replace(rnd(groupSlots),c=>tierOf(c.position)!==t&&c.position>=500);
+  }
  }
  return h;
 }
