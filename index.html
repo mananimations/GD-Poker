@@ -58,17 +58,31 @@
     <small id="lbnote">Wins against other players only. Bot games don't count.</small>
    </div>
   </div>
-  <div id="m-diff" class="mscr" hidden>
-   <p>Choose bot difficulty</p>
-   <div id="dlist">
-    <button class="btn dbtn" data-d="pussy" style="--dc:#9aa0a6"><b>Pussy</b><span>Genuinely stupid and easy to beat</span></button>
-    <button class="btn dbtn" data-d="easy" style="--dc:#4ade80"><b>Easy</b><span>A little easier than average</span></button>
-    <button class="btn dbtn" data-d="medium" style="--dc:#38bdf8"><b>Medium</b><span>Average player difficulty</span></button>
-    <button class="btn dbtn" data-d="hard" style="--dc:#fb923c"><b>Hard</b><span>A little bit challenging</span></button>
-    <button class="btn dbtn" data-d="insane" style="--dc:#ef4444"><b>Insane</b><span>A good challenge for players</span></button>
-    <button class="btn dbtn" data-d="mogger" style="--dc:#ffd23f"><b>Mogger</b><span>The smartest player ever. Never makes mistakes.</span></button>
-   </div>
-   <button class="link" id="mBack3">← back</button>
+  <div id="m-diff" class="mscr setup-screen" hidden>
+   <section class="setup-panel difficulty-panel">
+    <p>Choose bot difficulty</p>
+    <div id="dlist">
+     <button class="btn dbtn" data-d="pussy" style="--dc:#9aa0a6"><b>Pussy</b><span>Genuinely stupid and easy to beat</span></button>
+     <button class="btn dbtn" data-d="easy" style="--dc:#4ade80"><b>Easy</b><span>A little easier than average</span></button>
+     <button class="btn dbtn" data-d="medium" style="--dc:#38bdf8"><b>Medium</b><span>Average player difficulty</span></button>
+     <button class="btn dbtn" data-d="hard" style="--dc:#fb923c"><b>Hard</b><span>A little bit challenging</span></button>
+     <button class="btn dbtn" data-d="insane" style="--dc:#ef4444"><b>Insane</b><span>A good challenge for players</span></button>
+     <button class="btn dbtn" data-d="mogger" style="--dc:#ffd23f"><b>Mogger</b><span>The smartest player ever. Never makes mistakes.</span></button>
+    </div>
+   </section>
+   <section class="setup-panel rules-panel">
+    <p>Match settings</p>
+    <label class="setting-field">Play to
+     <select id="botRounds" class="round-select">
+      <option value="1">1 round</option><option value="3">3 rounds</option><option value="5" selected>5 rounds</option>
+      <option value="10">10 rounds</option><option value="20">20 rounds</option><option value="0">Infinite rounds</option>
+     </select>
+    </label>
+    <div class="luck-setting"><b>Bot luck</b><input id="botLuck" class="luck-slider" type="range" min="0" max="2" step="1" value="1"><div class="luck-labels"><span>Bad</span><span>Normal</span><span>Good</span></div></div>
+    <div class="luck-setting"><b>Your luck</b><input id="playerLuck" class="luck-slider" type="range" min="0" max="2" step="1" value="1"><div class="luck-labels"><span>Bad</span><span>Normal</span><span>Good</span></div></div>
+    <small>Luck changes card rarity and how often matching card types appear.</small>
+   </section>
+   <button class="link setup-back" id="mBack3">← back</button>
   </div>
   <div id="m-lobby" class="mscr" hidden>
    <p>Lobby: pick a room</p>
@@ -79,6 +93,9 @@
     <b>Or make your own room</b>
     <label><input type="checkbox" id="mklock"> Lock it with a password</label>
     <input id="mkpw" type="text" maxlength="20" placeholder="Room password" autocomplete="off" hidden>
+    <label class="round-field">Play to
+     <select id="lobbyRounds" class="round-select"><option value="1">1 round</option><option value="3">3 rounds</option><option value="5" selected>5 rounds</option><option value="10">10 rounds</option><option value="20">20 rounds</option><option value="0">Infinite rounds</option></select>
+    </label>
     <button class="btn big alt" id="mkgo">＋ CREATE ROOM</button>
    </div>
    <button class="link" id="mBack2">← leave lobby</button>

@@ -178,3 +178,25 @@ html[data-motion=full] #table{animation:felt 2.4s linear infinite}
 #m-banned p{color:var(--red)}
 
 #maint-lock[hidden],#menu[hidden]{display:none!important}
+
+/* Bot setup: difficulty on the left, match settings on the right */
+#m-diff.setup-screen{width:min(100%,980px);display:grid;grid-template-columns:minmax(280px,1.15fr) minmax(260px,.85fr);gap:18px;align-items:stretch;text-align:left}
+#m-diff.setup-screen[hidden]{display:none}
+.setup-panel{background:var(--panel);border:5px solid var(--ink);border-radius:18px;box-shadow:0 7px 0 var(--ink),0 0 0 3px var(--gold);padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.setup-panel>p{font-size:20px;font-weight:900;margin:0;text-align:center}
+#dlist{display:flex;flex-direction:column;gap:8px;width:100%}
+.dbtn{padding:8px 12px}.dbtn b{font-size:18px}
+.rules-panel{justify-content:flex-start}
+.setting-field,.round-field{display:flex;flex-direction:column;gap:7px;text-align:left;font-weight:900}
+.round-select{width:100%;font:inherit;font-weight:900;padding:10px;border:3px solid var(--ink);border-radius:9px;background:#fff;color:#171020}
+.luck-setting{display:flex;flex-direction:column;gap:7px;background:rgba(0,0,0,.22);padding:12px;border-radius:10px}
+.luck-setting>b{text-align:center;color:var(--gold);font-size:17px}
+.luck-slider{width:100%;margin:8px 0 0;accent-color:var(--gold);cursor:pointer;appearance:none;height:8px;border-radius:99px;background:linear-gradient(90deg,#ef4444,#facc15,#4ade80);outline:none}
+.luck-slider::-webkit-slider-thumb{appearance:none;width:23px;height:23px;border:3px solid var(--ink);border-radius:50%;background:var(--gold);box-shadow:0 2px 0 var(--ink)}
+.luck-slider::-moz-range-thumb{width:17px;height:17px;border:3px solid var(--ink);border-radius:50%;background:var(--gold);box-shadow:0 2px 0 var(--ink)}
+.luck-labels{display:flex;justify-content:space-between;font-size:12px;font-weight:900}
+.rules-panel>small{font-size:11px;opacity:.75;text-align:center}
+.setup-back{grid-column:1/-1;justify-self:center}
+.round-field{width:100%;margin-top:4px}
+@media(max-width:680px){#m-diff.setup-screen{grid-template-columns:1fr}.setup-back{grid-column:auto}}
+#mbox:has(#m-diff:not([hidden])){width:100%;max-width:1000px;background:none;border:0;box-shadow:none;padding:0}

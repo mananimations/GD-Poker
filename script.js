@@ -111,7 +111,9 @@ const DIFFS={
  hard:{label:"Hard",say:"Hard bot."},
  insane:{label:"Insane",say:"Insane bot."},
  mogger:{label:"Mogger",say:"Mogger bot is locked in."}};
-let diff="medium";
+let diff="medium",botLuck="normal",playerLuck="normal",matchTarget=5,roundsPlayed=0;
+const luckName=v=>["bad","normal","good"][Math.max(0,Math.min(2,+v||0))];
+const selectedRounds=id=>{const v=Number($(id).value);return Number.isFinite(v)&&v>=0?v:5};
 const apexN=h=>h.filter(c=>c.position===1).length;
 // +1 if hand a beats hand b, -1 if it loses, 0 for a draw (same rules as the showdown)
 function versus(a,b){const x=apexN(a),y=apexN(b);return(x||y)?Math.sign(x-y):cmp(evalHand(a).score,evalHand(b).score)}
@@ -222,7 +224,15 @@ async function showdown(oh){
  else{sfxLose();say(dA?`${OPP} has the top #1! ${OPP} wins.`:`${OPP} wins this one. Deal again?`)}
  coins+=w;$("#table").classList.add("done");$("#coins").textContent=coins;$("#win").textContent=w;
  phase="idle";$("#go").textContent="DEAL";$("#go").disabled=false;
- rstage="result";lastRes=$("#say").textContent;specPush();
+ rstage="result";lastRes=$("#say").textContent;roundsPlayed++;
+ if(matchTarget>0&&roundsPlayed>=matchTarget){if(mode==="bot"||net.role==="host")finishMatch();return}
+ specPush();
+}
+function finishMatch(){
+ if(!net.started&&mode==="pvp")return;
+ if(mode==="pvp"){send({t:"matchEnd"});net.started=false;clearInterval(net.hb);try{net.conn&&net.conn.close()}catch(e){}}
+ showOv(`Match complete! ${roundsPlayed} round${roundsPlayed===1?"":"s"} played.`,"click to return to the menu",()=>location.reload());
+ setTimeout(()=>location.reload(),7000);
 }
 const repIdx=()=>[0,1,2,3,4].filter(i=>!held[i]);
 const lockDraw=()=>{phase="busy";rstage="drawing";$("#go").disabled=true;pEls.forEach(e=>e.classList.remove("hold","dis","on"))};
@@ -232,15 +242,18 @@ async function botDeal(){
  phase="busy";$("#go").disabled=true;
  deck=shuffle(levels.slice());
  const[mine,theirs]=await dealRig(myId,null,true,false); // admin card grants + power hour only affect the player, never the bot
- dhand=theirs;
+ dhand=theirs;tuneLuck(mine,playerLuck);tuneLuck(dhand,botLuck);
  await startRound(mine);
 }
 async function botDraw(){
  lockDraw();const rep=repIdx();if(!rep.length)say("Standing pat!");
- await applyMyDraw(rep,drawNew(hand,rep,true));
+ const fresh=drawNew(hand,rep,true),finalHand=hand.slice();rep.forEach((i,k)=>{finalHand[i]=fresh[k]});
+ if(rep.length)tuneLuck(finalHand,playerLuck);
+ const changed=finalHand.map((c,i)=>c!==hand[i]?i:-1).filter(i=>i>=0);
+ await applyMyDraw(changed,changed.map(i=>finalHand[i]));
  say(`${OPP}'s turn…`);await sleep(diff==="mogger"?200:800);
  const dd=botPick(dhand,hand,deck);
- dd.forEach(i=>{dhand[i]=deck.shift()});specPush();
+ dd.forEach(i=>{dhand[i]=deck.shift()});if(dd.length)tuneLuck(dhand,botLuck);specPush();
  await oppDiscard(dd);
  await showdown(dhand);
 }
@@ -278,8 +291,9 @@ function onMsg(m){
  if(!m||typeof m!=="object")return;net.last=Date.now();
  switch(m.t){
   case"hello":if(net.started)return;
-   if(net.role==="host")send({t:"hello",name:myName,pic:myPic,did:myId});
-   oppId=String(m.did||"").slice(0,30);beginPvp(clean(m.name),goodPic(m.pic));break;
+   if(net.role==="host")send({t:"hello",name:myName,pic:myPic,did:myId,rounds:net.room&&net.room.rounds||matchTarget});
+   else if(Number.isFinite(+m.rounds))matchTarget=Math.max(0,Math.min(1000,+m.rounds));
+   roundsPlayed=0;oppId=String(m.did||"").slice(0,30);beginPvp(clean(m.name),goodPic(m.pic));break;
   case"ready":if(net.role==="host"){guestReady=true;hostMaybeDeal()}break;
   case"deal":if(net.role==="guest"&&Array.isArray(m.hand)){resetSync();startRound(m.hand)}break;
   case"draw":if(net.role==="host"&&Array.isArray(m.rep)&&!guestDrew){
@@ -292,6 +306,7 @@ function onMsg(m){
   case"reveal":oppReveal=m.hand;if(meDrew)showdown(oppReveal);break;
   case"chat":if(typeof m.x==="string"&&rateOk("c",350)){chatAdd(OPP,clean2(m.x),false);sfxClick()}break;
   case"emote":if(EMOTES.includes(m.e)&&rateOk("e",350)){popEmote($("#av"),m.e);sfxFlip()}break;
+  case"matchEnd":finishMatch();break;
   case"bye":opponentLeft();break;
  }
 }
@@ -333,8 +348,8 @@ const goodPic=p=>typeof p==="string"&&/^data:image\/(jpeg|png|webp);base64,[A-Za
 function beginPvp(name,pic){
  net.started=true;OPP=name;mode="pvp";$("#chat").hidden=false;$("#clog").textContent="";chatAdd("",`Chat with ${OPP}. Emotes pop up over avatars.`,false,true);
  clearInterval(net.hb);net.hb=setInterval(()=>{send({t:"ping"});if(Date.now()-net.last>25000)opponentLeft("lost connection")},3000);
- enterGame(`Matched with ${OPP}! Press DEAL when you're ready.`,pic);
- $("#st").className=live?"":"bad";$("#st").textContent=`Playing against ${OPP} (peer-to-peer). Both players press DEAL to start each round.`;
+ enterGame(`Matched with ${OPP}! First to ${matchTarget||"infinite"} rounds. Press DEAL when you're ready.`,pic);
+ $("#st").className=live?"":"bad";$("#st").textContent=`Playing against ${OPP} · ${matchTarget?`first to ${matchTarget} rounds`:`infinite rounds`} · both players press DEAL to start each round.`;
 }
 
 // ================= LOBBY (rooms) =================
@@ -348,7 +363,7 @@ function netCleanup(){
  if(net.conn&&!net.started){try{net.conn.close()}catch(e){}}
  net.conn=net.hc=net.room=null;net.isHub=false;net.regs.clear();net.hubConns.clear();net.rooms=[];net.stage=null;net.connecting=null;
 }
-function regInfo(){return{hid:net.gp.id,host:myName,locked:!!(net.room&&net.room.pw)}}
+function regInfo(){return{hid:net.gp.id,host:myName,locked:!!(net.room&&net.room.pw),rounds:net.room&&Number.isFinite(+net.room.rounds)?+net.room.rounds:5}}
 function hubBroadcast(){
  const list=[...net.regs.values()];
  net.hubConns.forEach(c=>{try{c.open&&c.send({t:"rooms",list})}catch(e){}});
@@ -366,7 +381,7 @@ function unregRoom(){
 function hubMsg(c,m){
  if(!m||typeof m!=="object")return;
  if(m.t==="hi")c.send({t:"rooms",list:[...net.regs.values()]});
- else if(m.t==="reg"&&m.room&&typeof m.room.hid==="string"){net.regs.set(c,{hid:m.room.hid.slice(0,60),host:clean(m.room.host),locked:!!m.room.locked});hubBroadcast()}
+ else if(m.t==="reg"&&m.room&&typeof m.room.hid==="string"){net.regs.set(c,{hid:m.room.hid.slice(0,60),host:clean(m.room.host),locked:!!m.room.locked,rounds:Number.isFinite(+m.room.rounds)?Math.max(0,Math.min(1000,+m.room.rounds)):5});hubBroadcast()}
  else if(m.t==="unreg"){if(net.regs.delete(c))hubBroadcast()}
 }
 function tryHub(){
@@ -416,22 +431,23 @@ function onRoomConn(c){
 function setRooms(list){
  const me=net.gp&&net.gp.id;net.rooms=(list||[]).filter(r=>r&&r.hid&&r.hid!==me);
  renderRooms();
- if(net.stage==="entering"&&net.gp){net.stage="lobby";net.rooms.length?showLobby():createRoom("")}
+ if(net.stage==="entering"&&net.gp){net.stage="lobby";showLobby()}
 }
 function renderRooms(){
  for(const id of["rlist","rlist2"]){
   const box=$("#"+id);box.textContent="";
   if(!net.rooms.length&&id==="rlist"){const d=document.createElement("div");d.className="rempty";d.textContent="No open rooms right now.";box.appendChild(d)}
   net.rooms.forEach(r=>{const d=document.createElement("div");d.className="room";
-   const n=document.createElement("span");n.className="rn";n.textContent=(r.locked?"🔒 ":"")+r.host+"'s room";
+   const n=document.createElement("span");n.className="rn";n.textContent=(r.locked?"🔒 ":"")+r.host+"'s room · "+(r.rounds===0?"∞ rounds":r.rounds+" rounds");
    const b=document.createElement("button");b.className="btn sm go";b.textContent="JOIN";b.onclick=()=>{sfxClick();tryJoin(r)};
    d.append(n,b);box.appendChild(d)});
  }
  $("#w2").hidden=!net.rooms.length;
 }
 function showLobby(){net.stage="lobby";$("#jpw").hidden=true;scr("m-lobby");renderRooms()}
-function createRoom(pw){
- net.room={pw:pw||""};net.stage="room";
+function createRoom(pw,rounds){
+ matchTarget=Number.isFinite(+rounds)?Math.max(0,Math.min(1000,+rounds)):selectedRounds("#lobbyRounds");roundsPlayed=0;
+ net.room={pw:pw||"",rounds:matchTarget};net.stage="room";
  $("#mwait").textContent="Waiting for another player to join…";
  $("#wroom").hidden=false;$("#wlock").checked=!!pw;$("#wpw").hidden=$("#wset").hidden=!pw;$("#wpw").value=pw||"";
  $("#wst").textContent=pw?"🔒 Room locked.":"Room is open to anyone.";
@@ -613,6 +629,30 @@ function drawNew(h,rep,boost){
  const cs=rep.map(()=>deck.shift());
  if(!boost||!pwOn()||!rep.length)return cs;
  const fin=h.slice();rep.forEach((i,k)=>{fin[i]=cs[k]});powerHand(fin,rep);return rep.map(i=>fin[i]);
+}
+// Luck gently changes the rarity distribution and the chance of matching card tiers.
+// Cards are swapped with the undealt deck so a card can never appear twice.
+function tuneLuck(h,luck){
+ if(!h||!deck.length||luck==="normal")return h;
+ const pull=fn=>{const i=deck.findIndex(fn);return i<0?null:deck.splice(i,1)[0]};
+ const replace=(slot,fn)=>{const c=pull(fn);if(!c)return false;deck.push(h[slot]);h[slot]=c;return true};
+ const counts=()=>{const o={};h.forEach(c=>{const t=tierOf(c.position);o[t]=(o[t]||0)+1});return o};
+ if(luck==="good"){
+  // Improve the chance of drawing rarer cards without guaranteeing an Apex.
+  const rareSlots=h.map((c,i)=>({c,i})).filter(x=>x.c.position>1&&tierOf(x.c.position)<3).map(x=>x.i);
+  if(rareSlots.length&&Math.random()<.62)replace(rnd(rareSlots),c=>c.position>1&&tierOf(c.position)>=3);
+  // Encourage a pair or extend an existing matching group.
+  const ct=counts(),group=Object.entries(ct).filter(([t,n])=>+t<7&&n>=2&&n<4).sort((a,b)=>b[1]-a[1]);
+  if(group.length&&Math.random()<.72){const t=+group[0][0],slots=h.map((c,i)=>tierOf(c.position)!==t&&c.position!==1?i:-1).filter(i=>i>=0);if(slots.length)replace(rnd(slots),c=>tierOf(c.position)===t&&c.position!==1)}
+  else if(!group.length&&Math.random()<.38){const slots=h.map((c,i)=>c.position!==1?i:-1).filter(i=>i>=0);if(slots.length){const target=rnd(h.filter(c=>c.position!==1));replace(rnd(slots),c=>tierOf(c.position)===tierOf(target)&&c.position!==1)}}
+ }else{
+  // Bad luck favors common cards and can break a matching group.
+  const rareSlots=h.map((c,i)=>({c,i})).filter(x=>x.c.position>1&&tierOf(x.c.position)>=3).map(x=>x.i);
+  if(rareSlots.length&&Math.random()<.68)replace(rnd(rareSlots),c=>c.position>=750);
+  const ct=counts(),group=Object.entries(ct).filter(([t,n])=>+t<7&&n>=2).sort((a,b)=>b[1]-a[1]);
+  if(group.length&&Math.random()<.58){const t=+group[0][0],slots=h.map((c,i)=>tierOf(c.position)===t&&c.position!==1?i:-1).filter(i=>i>=0);if(slots.length)replace(rnd(slots),c=>tierOf(c.position)!==t&&c.position>=500)}
+ }
+ return h;
 }
 
 // ---- Card grants: the admin queues cards for a player; their next dealt round uses the oldest unused grant
@@ -799,7 +839,8 @@ const CHARS=[{n:"Shopkeeper",i:null},{n:"The Wizard Grandmaster",i:"assets/chars
 $("#mBot").onclick=()=>{if(banState==="banned")return;sfxClick();startMusic();scr("m-diff")};
 $("#mBack3").onclick=()=>{sfxClick();scr("m-main")};
 document.querySelectorAll(".dbtn").forEach(b=>b.onclick=async()=>{sfxClick();await ready;mode="bot";diff=b.dataset.d;
- const c=CHARS[Math.random()*CHARS.length|0],D=DIFFS[diff];OPP=c.n;enterGame(`${OPP} is your dealer (${D.label}). Press DEAL to start.`,c.i,!!c.i);
+ matchTarget=selectedRounds("#botRounds");roundsPlayed=0;botLuck=luckName($("#botLuck").value);playerLuck=luckName($("#playerLuck").value);
+ const c=CHARS[Math.random()*CHARS.length|0],D=DIFFS[diff];OPP=c.n;enterGame(`${OPP} is your dealer (${D.label}). First to ${matchTarget||"infinite"} rounds. Press DEAL to start.`,c.i,!!c.i);
  $("#dlbl").textContent=`${OPP}'s hand · ${D.label}`;
  if(live){$("#st").className="";$("#st").textContent=`Bot difficulty: ${D.label}. ${D.say}`}});
 $("#mPvp").onclick=()=>{startMusic();goLobby()};
@@ -812,7 +853,7 @@ $("#mklock").onchange=e=>{$("#mkpw").hidden=!e.target.checked;if(e.target.checke
 $("#mkgo").onclick=()=>{
  const pw=$("#mklock").checked?$("#mkpw").value.trim():"";
  if($("#mklock").checked&&!pw){$("#mkpw").focus();$("#mkpw").placeholder="Type a password!";return}
- sfxClick();createRoom(pw)};
+ sfxClick();createRoom(pw,selectedRounds("#lobbyRounds"))};
 $("#wlock").onchange=e=>{
  $("#wpw").hidden=$("#wset").hidden=!e.target.checked;
  if(e.target.checked)$("#wpw").focus();
