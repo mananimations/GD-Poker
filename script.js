@@ -377,10 +377,10 @@ function joinFail(msg){
 }
 
 // ================= MENU =================
-function enterGame(msg,pic){
+function enterGame(msg,pic,chr){
  $("#menu").classList.add("gone");
  $("#dname").textContent=OPP;$("#dimg").alt=OPP;$("#dlbl").textContent=OPP+"'s hand";
- const di=$("#dimg");di.src=pic||"assets/dealer.png";di.classList.toggle("custom",!!pic);
+ const di=$("#dimg");di.src=pic||"assets/dealer.png";di.classList.toggle("custom",!!pic&&!chr);di.classList.toggle("char",!!chr);
  const mv=$("#myav");mv.hidden=!myPic;if(myPic)mv.src=myPic;
  say(msg);$("#go").disabled=false;
 }
@@ -429,7 +429,10 @@ $("#cropok").onclick=()=>{
  setPic(p);scr("m-main");
 };
 $("#pfclear").onclick=()=>{sfxClick();setPic(null);["dpp_pic","dpp_picsrc","dpp_crop"].forEach(store.del)};
-$("#mBot").onclick=async()=>{sfxClick();startMusic();await ready;mode="bot";OPP="Dealer";enterGame("Welcome! Press DEAL to start.")};
+// the bot's dealer is a random character each time you start a bot game
+const CHARS=[{n:"Shopkeeper",i:null},{n:"The Wizard Grandmaster",i:"assets/chars/wizard.png"},{n:"The Biger F",i:"assets/chars/biger-f.png"},{n:"Npesta",i:"assets/chars/npesta.png"}];
+$("#mBot").onclick=async()=>{sfxClick();startMusic();await ready;mode="bot";
+ const c=CHARS[Math.random()*CHARS.length|0];OPP=c.n;enterGame(`${OPP} is your dealer. Press DEAL to start.`,c.i,!!c.i)};
 $("#mPvp").onclick=()=>{sfxClick();startMusic();scr("m-name");$("#mname").focus()};
 $("#mBack1").onclick=()=>{sfxClick();scr("m-main")};
 const goLobby=async()=>{
