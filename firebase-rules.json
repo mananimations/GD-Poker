@@ -23,6 +23,12 @@
       "$id": { ".read": true }
     },
 
+    "deleted": {
+      ".read": "auth != null && auth.uid === 'PASTE_YOUR_ADMIN_UID_HERE'",
+      ".write": "auth != null && auth.uid === 'PASTE_YOUR_ADMIN_UID_HERE'",
+      "$id": { ".read": true }
+    },
+
     "config": {
       ".read": true,
       ".write": "auth != null && auth.uid === 'PASTE_YOUR_ADMIN_UID_HERE'"

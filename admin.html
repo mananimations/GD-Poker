@@ -127,12 +127,12 @@ tr.banned td{background:rgba(255,77,94,.12)}
  <header>
   <h1>★ POKER ADMIN</h1>
   <nav id="nav">
-   <button data-t="control">🛠 Site controls</button>
    <button data-t="live" class="on">👁 Live games</button>
    <button data-t="players">🏆 Players</button>
    <button data-t="grants">🎁 Card grants</button>
    <button data-t="power">⚡ Power hours</button>
    <button data-t="bans">🚫 Bans</button>
+   <button data-t="site">🛠️ Site control</button>
    <button data-t="log">📜 Log</button>
   </nav>
   <span id="conn" class="ok">● connected</span><span id="who" class="mut"></span>
@@ -140,21 +140,6 @@ tr.banned td{background:rgba(255,77,94,.12)}
  </header>
  <div id="warn" hidden></div>
  <main>
-
-  <!-- SITE CONTROLS -->
-  <section class="tab" id="t-control" hidden>
-   <div class="panel red">
-    <h2>🚧 Global maintenance mode</h2>
-    <p class="mut">When enabled, every player sees “GD Poker is currently down for maintenance” and the game is blocked. The game checks this setting continuously.</p>
-    <div class="bar"><strong id="maintstatus">Checking status…</strong><span class="sp"></span><button class="btn danger" id="maintOn">Enable maintenance</button><button class="btn gold" id="maintOff">Disable maintenance</button></div>
-   </div>
-   <div class="panel">
-    <h2>♻ Refresh website files for everyone</h2>
-    <p class="mut">Publishes a new asset version. Open game pages automatically reload and request fresh CSS and JavaScript files. This cannot erase a browser's entire cache or force a reload while a player is offline.</p>
-    <button class="btn gold" id="cacheBump">🔄 Force refresh for all players</button>
-    <span class="mut" id="cacheStatus"></span>
-   </div>
-  </section>
 
   <!-- LIVE -->
   <section class="tab" id="t-live">
@@ -247,6 +232,33 @@ tr.banned td{background:rgba(255,77,94,.12)}
    <div class="panel">
     <div class="bar" style="margin-bottom:8px"><h2>Banned accounts</h2><span id="bcount" class="mut"></span><span class="sp"></span><button class="btn sm dim" id="brefresh">↻ Refresh</button></div>
     <div class="tw"><table><thead><tr><th>ACCOUNT</th><th>DISCORD ID</th><th>REASON</th><th>WHEN</th><th></th></tr></thead><tbody id="btb"></tbody></table></div>
+   </div>
+  </section>
+
+  <!-- SITE CONTROL -->
+  <section class="tab" id="t-site" hidden>
+   <div class="panel red" id="maintPanel">
+    <div class="bar">
+     <h2>🔒 Maintenance Mode</h2>
+     <span class="sp"></span>
+     <span id="maintBadge" class="chip ok">GAME LIVE</span>
+    </div>
+    <p class="mut" style="margin:8px 0 12px">
+     When locked, every player sees <b>"GD Poker is currently down for maintenance"</b> and cannot play until you unlock it.
+    </p>
+    <button class="btn danger" id="maintToggle">🔒 Lock Game for Maintenance</button>
+   </div>
+
+   <div class="panel">
+    <div class="bar">
+     <h2>🧹 Clear Everyone's Cache</h2>
+     <span class="sp"></span>
+     <span id="cacheVer" class="mut"></span>
+    </div>
+    <p class="mut" style="margin:8px 0 12px">
+     Pushes a new site version to all open clients. Players' browsers will automatically wipe Cache Storage, unregister service workers, and hard-reload with fresh assets.
+    </p>
+    <button class="btn gold" id="clearCacheBtn">🧹 Clear Everyone's Cache Now</button>
    </div>
   </section>
 
@@ -357,19 +369,11 @@ $("#lpw").onkeydown=e=>{if(e.key==="Enter")$("#lgo").click()};
 $("#out").onclick=()=>{sess.del("adm_rt");location.reload()};
 (async()=>{const rt=sess.get("adm_rt");if(!rt||!S.key)return;S.rt=rt;S.email=sess.get("adm_email")||"";try{await refreshTok();await enter()}catch(e){lerr(e.message)}})();
 
-/* ---------- site-wide controls ---------- */
-let MAINT=null;
-async function loadSiteControls(){try{MAINT=await api("/config/maintenanceV3.json")||null;paintSiteControls()}catch(e){fail(e)}}
-function paintSiteControls(){const on=!!(MAINT&&MAINT.enabled);$("#maintstatus").textContent=on?"🔴 Maintenance is ON for everyone":"🟢 Game is live";$("#maintOn").disabled=on;$("#maintOff").disabled=!on}
-$("#maintOn").onclick=async()=>{if(!await confirmBox("Enable maintenance mode?","All players will be blocked from playing until you turn it off.","Enable maintenance",true))return;try{await api("/config/maintenanceV3.json","PUT",{enabled:true,message:"GD Poker is currently down for maintenance",updatedAt:Date.now()});MAINT={enabled:true};audit("maintenance enabled","Game locked for all players");paintSiteControls();toast("Maintenance enabled for everyone")}catch(e){fail(e)}};
-$("#maintOff").onclick=async()=>{if(!await confirmBox("Disable maintenance mode?","Players will be able to use the game again.","Disable maintenance"))return;try{await api("/config/maintenanceV3.json","PUT",{enabled:false,updatedAt:Date.now()});MAINT={enabled:false};audit("maintenance disabled","Game reopened for all players");paintSiteControls();toast("Game reopened") }catch(e){fail(e)}};
-$("#cacheBump").onclick=async()=>{if(!await confirmBox("Force-refresh the website for everyone?","Online game pages will reload and fetch a new version of the CSS and JavaScript files. Players may lose an active game.","Force refresh",true))return;try{const v=Date.now();await api("/config/cacheVersion.json","PUT",v);audit("force website refresh",`Asset version ${v}`);$("#cacheStatus").textContent="Refresh signal sent: "+new Date(v).toLocaleString();toast("Refresh signal sent to online players")}catch(e){fail(e)}};
-
 /* ---------- tabs ---------- */
 let tab="live";
 function show(t){tab=t;document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
  document.querySelectorAll(".tab").forEach(s=>s.hidden=s.id!=="t-"+t);
- if(t==="control")loadSiteControls();if(t==="live")pollLive();if(t==="players")loadPlayers().catch(e=>fail(e));if(t==="grants"){loadGrants();ensureLevels()}if(t==="power")loadPower();if(t==="bans")loadBans();if(t==="log")loadLog()}
+ if(t==="live")pollLive();if(t==="players")loadPlayers().catch(e=>fail(e));if(t==="grants"){loadGrants();ensureLevels()}if(t==="power")loadPower();if(t==="bans")loadBans();if(t==="site")loadSiteControl();if(t==="log")loadLog()}
 $("#nav").onclick=e=>{const b=e.target.closest("button");if(b)show(b.dataset.t)};
 const setConn=ok=>{const c=$("#conn");c.className=ok?"ok":"bad";c.textContent=ok?"● connected":"● connection problem"};
 
@@ -440,7 +444,7 @@ function renderPlayers(){
     h("button",{class:"btn sm gold",onclick:()=>setWins(p)},"Set wins"),
     h("button",{class:"btn sm dim",disabled:!p.wins,onclick:()=>zeroWins(p)},"Zero wins"),
     h("button",{class:"btn sm dim",onclick:()=>removePlayer(p)},"Remove"),
-    h("button",{class:"btn sm danger",onclick:()=>deleteAccount(p)},"Delete account"),
+    h("button",{class:"btn sm danger",onclick:()=>deleteAccount(p)},"Delete Account"),
     h("button",{class:"btn sm alt",onclick:()=>giveTo(p.id)},"🎁"),
     b?h("button",{class:"btn sm",onclick:()=>unban(p.id,p.name)},"Unban"):h("button",{class:"btn sm danger",onclick:()=>banDialog(p.id,p.name)},"Ban")))}));
  if(!rows.length)$("#ptb").append(h("tr",{},h("td",{colspan:6,class:"empty-msg",text:"No players found."})))}
@@ -455,13 +459,21 @@ async function removePlayer(p){
  if(!await confirmBox("Remove from leaderboard?",`Deletes ${p.name}'s whole entry (name, avatar, ${p.wins} wins). It is recreated at 0 wins if they log in again. To stop them playing, use Ban instead.`,"Remove",true))return;
  try{await api("/players/"+enc(p.id)+".json","DELETE");audit("remove player",`${p.name} (${p.id}) had ${p.wins}`);toast("Removed");loadPlayers()}catch(e){fail(e)}}
 async function deleteAccount(p){
- if(!await confirmBox("Permanently delete "+p.name+"'s game account?",`This removes their player profile and leaderboard entry, deletes queued card grants, and bans this Discord ID so the game account cannot be recreated by logging in again. This does not delete their Discord account (the game cannot control Discord).` ,"Delete game account",true))return;
+ if(!await confirmBox(
+  "Permanently delete account?",
+  `Deletes ${p.name} (${p.id}) from /players and removes all their pending /grants. If they are currently online, they will be logged out immediately.`,
+  "Delete Account",
+  true
+ ))return;
  try{
-  await api("/bans/"+enc(p.id)+".json","PUT",{name:p.name,reason:"Game account deleted by administrator",by:S.email,ts:{".sv":"timestamp"},deleted:true});
-  await api("/players/"+enc(p.id)+".json","DELETE");
-  await api("/grants/"+enc(p.id)+".json","DELETE").catch(()=>{});
-  audit("delete game account",`${p.name} (${p.id}); profile and grants deleted, account blocked`);
-  toast("Game account deleted and blocked");await loadPlayers();await loadBans(true);
+  await Promise.all([
+   api("/players/"+enc(p.id)+".json","DELETE"),
+   api("/grants/"+enc(p.id)+".json","DELETE"),
+   api("/deleted/"+enc(p.id)+".json","PUT",{ts:{".sv":"timestamp"},by:S.email})
+  ]);
+  audit("delete account",`${p.name} (${p.id}) had ${p.wins} wins`);
+  toast("Account deleted");
+  loadPlayers();
  }catch(e){fail(e)}
 }
 function backup(){const blob=new Blob([JSON.stringify({exportedAt:new Date().toISOString(),players:PLAYERS},null,2)],{type:"application/json"});
@@ -593,4 +605,56 @@ async function loadLog(){
  $("#ltb").replaceChildren(...rows.map(r=>h("tr",{},h("td",{text:r.ts?new Date(+r.ts).toLocaleString():"—"}),h("td",{},h("b",{text:String(r.action||"")})),h("td",{text:String(r.detail||"")}))));
  if(!rows.length)$("#ltb").append(h("tr",{},h("td",{colspan:3,class:"empty-msg",text:"Nothing logged yet."})))}
 $("#lgrefresh").onclick=loadLog;
+
+/* ---------- SITE CONTROL (MAINTENANCE & CACHE BUST) ---------- */
+let SITE_CFG={};
+async function loadSiteControl(){
+ try{
+  SITE_CFG=(await api("/config.json"))||{};
+  paintSiteControl();
+ }catch(e){fail(e)}
+}
+function paintSiteControl(){
+ const locked=SITE_CFG.maintenance===true;
+ const badge=$("#maintBadge"),btn=$("#maintToggle");
+ badge.textContent=locked?"LOCKED FOR MAINTENANCE":"GAME LIVE";
+ badge.className="chip "+(locked?"r":"ok");
+ btn.textContent=locked?"🔓 Unlock Game (Bring Back Online)":"🔒 Lock Game for Maintenance";
+ btn.className="btn "+(locked?"gold":"danger");
+ $("#cacheVer").textContent=SITE_CFG.cacheVersion?"Last cleared: "+new Date(+SITE_CFG.cacheVersion).toLocaleString():"Never triggered";
+}
+$("#maintToggle").onclick=async()=>{
+ const next=!(SITE_CFG.maintenance===true);
+ const ok=await confirmBox(
+  next?"Lock GD Poker for maintenance?":"Bring GD Poker back online?",
+  next
+   ?'All players will immediately be blocked behind "GD Poker is currently down for maintenance" until you unlock it.'
+   :"Removes the maintenance lock screen so players can play again.",
+  next?"Lock Game":"Unlock Game",
+  next
+ );
+ if(!ok)return;
+ try{
+  await api("/config/maintenance.json","PUT",next);
+  SITE_CFG.maintenance=next;
+  paintSiteControl();
+  audit("maintenance",next?"ENABLED (game locked)":"DISABLED (game unlocked)");
+  toast(next?"🔒 Maintenance mode enabled":"🔓 Maintenance mode disabled");
+ }catch(e){fail(e)}
+};
+$("#clearCacheBtn").onclick=async()=>{
+ if(!await confirmBox(
+  "Clear everyone's cache?",
+  "Every active visitor's browser will clear cached files and reload the latest version of the site.",
+  "Clear Cache Now"
+ ))return;
+ const ver=Date.now();
+ try{
+  await api("/config/cacheVersion.json","PUT",ver);
+  SITE_CFG.cacheVersion=ver;
+  paintSiteControl();
+  audit("clear cache","version "+ver);
+  toast("🧹 Cache clear triggered for all users");
+ }catch(e){fail(e)}
+};
 </script></body></html>

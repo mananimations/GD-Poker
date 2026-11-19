@@ -2,8 +2,13 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Demon Picture Poker</title>
-<script>try{window.__assetVersion=localStorage.getItem("gdp_asset_version")||"1"}catch(e){window.__assetVersion="1"}</script><link rel="stylesheet" href="style.css" id="gameStyle"><script>document.getElementById("gameStyle").href="style.css?v="+encodeURIComponent(window.__assetVersion)</script></head><body>
-<div id="maintenanceScreen" hidden style="position:fixed;inset:0;z-index:999999;background:#090811;color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px"><div><div style="font-size:clamp(28px,5vw,54px);font-weight:900">GD Poker is currently down for maintenance</div><p style="color:#aaa;margin-top:14px">Please check back soon.</p></div></div>
+<link rel="stylesheet" href="style.css"></head><body>
+<div id="maint-lock" hidden style="position:fixed;inset:0;z-index:99999;background:radial-gradient(circle at 50% 0,#4a1d6e,#1a0f2e 70%);display:flex;align-items:center;justify-content:center;padding:20px;text-align:center">
+ <div style="max-width:460px;background:#2b1850;border:5px solid #0d0716;border-radius:20px;box-shadow:0 8px 0 #0d0716,0 0 0 3px #ffd23f;padding:28px 24px">
+  <h1 style="margin:0 0 10px;color:#ffd23f;text-shadow:3px 3px 0 #0d0716;font-size:24px">GD Poker is currently down for maintenance</h1>
+  <p style="margin:0;color:rgba(255,244,230,.8);font-size:14px">Please check back shortly. This screen will clear automatically once maintenance ends.</p>
+ </div>
+</div>
 <div id="pwr" hidden></div>
 <div id="menu">
  <div id="mbox">
@@ -168,4 +173,4 @@
 </aside>
 </div></div>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script>document.write("<script src=\"script.js?v="+encodeURIComponent(window.__assetVersion)+"\"><\/script>")</script></body></html>
+<script src="script.js"></script></body></html>
