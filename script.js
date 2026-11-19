@@ -505,10 +505,41 @@ async function lbRefresh(){
  }catch(e){box.innerHTML='<div class="rempty">Couldn\'t load the leaderboard ('+(e.name==="AbortError"?"timed out":e.message)+').</div>'}
  lbBusy=false;
 }
+// ---- Usernames: chosen by the player (never taken from Discord), unique (ignoring case) and changeable any time in Account settings.
+// The name lives on the leaderboard record (/players/<discordId>/name), so it follows the player to other browsers.
+const NAME_RE=/^[A-Za-z0-9_.-]{3,14}$/,NAME_RESERVED=["admin","administrator","moderator","mod","dealer","player","system","you"];
+function nameProblem(n){
+ if(!NAME_RE.test(n))return "Use 3–14 letters, numbers, _ . or - (no spaces).";
+ if(NAME_RESERVED.includes(n.toLowerCase()))return "That name is reserved. Pick another.";
+ return "";
+}
+async function saveName(n){ // validates, checks nobody else has it, stores it on the leaderboard. Returns "" on success or a message.
+ const bad=nameProblem(n);if(bad)return bad;
+ if(!dcUser)return "Log in first.";
+ if(LB){
+  try{
+   const raw=await lbCall("/players.json","GET")||{},low=n.toLowerCase();
+   if(Object.entries(raw).some(([id,p])=>id!==myId&&p&&typeof p.name==="string"&&p.name.toLowerCase()===low))return "That username is taken. Try another.";
+   const b={name:n};if(okAv(dcUser.avatar))b.av=dcUser.avatar;
+   await lbCall("/players/"+encodeURIComponent(myId)+".json","PATCH",b);
+  }catch(e){return "Couldn't save your username ("+(e.name==="AbortError"?"timed out":e.message)+"). Try again."}
+ }
+ return "";
+}
+function applyName(n){ // the username changed: update everything that shows or sends it
+ if(!dcUser)return;
+ dcUser.name=myName=n;store.set("dpp_dc",JSON.stringify(dcUser));
+ $("#dcname").textContent=n;syncSettings();
+}
 let lbStarted=false;
-async function lbStart(){ // once per page load: update my name/avatar on the board, then load it
- if(lbStarted||!LB||!dcUser)return;lbStarted=true;
- try{const b={name:dcUser.name};if(okAv(dcUser.avatar))b.av=dcUser.avatar;await lbCall("/players/"+encodeURIComponent(myId)+".json","PATCH",b)}catch(e){}
+async function lbStart(){ // once per page load: sync my name/avatar with the board, then load it
+ if(lbStarted||!LB||!dcUser||!dcUser.name)return;lbStarted=true;
+ try{
+  const path="/players/"+encodeURIComponent(myId);
+  const cur=await lbCall(path+"/name.json","GET");
+  if(typeof cur==="string"&&cur.trim()&&clean(cur)!==dcUser.name)applyName(clean(cur)); // renamed on another device: the board is the source of truth
+  const b={name:dcUser.name};if(okAv(dcUser.avatar))b.av=dcUser.avatar;await lbCall(path+".json","PATCH",b);
+ }catch(e){}
  lbRefresh();
 }
 async function recordWin(){
@@ -648,7 +679,17 @@ function syncSettings(){
  $("#shidenote").textContent=LB?"Turn off to hide your name and wins from other players. Your wins are still counted.":"Leaderboard isn't set up yet.";
 }
 const serr=t=>{$("#serr").textContent=t||""};
-$("#setopen").onclick=()=>{sfxClick();syncSettings();serr("");$("#sdelin").value="";$("#sdel").disabled=true;$("#set").hidden=false;$("#set").scrollTop=0};
+const sunMsg=(t,ok)=>{const m=$("#sunmsg");m.textContent=t||"";m.className=ok?"err ok":"err"};
+$("#sunform").onsubmit=async e=>{
+ e.preventDefault();if(!dcUser)return;
+ const n=$("#sun").value.trim();
+ if(n===dcUser.name)return sunMsg("That's already your username.",false);
+ sfxClick();$("#sunsave").disabled=true;sunMsg("Checking…",true);
+ const err=await saveName(n);$("#sunsave").disabled=false;
+ if(err)return sunMsg(err,false);
+ applyName(n);$("#sun").value=n;sunMsg("Username changed to "+n+".",true);lbBusy=false;lbRefresh();
+};
+$("#setopen").onclick=()=>{sfxClick();syncSettings();serr("");sunMsg("");$("#sun").value=dcUser?dcUser.name:"";$("#sdelin").value="";$("#sdel").disabled=true;$("#set").hidden=false;$("#set").scrollTop=0};
 $("#setback").onclick=()=>{sfxClick();$("#set").hidden=true};
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#set").hidden&&!cf.classList.contains("on"))$("#set").hidden=true});
 for(const[a,b]of[["ssfx","sfxv"],["smus","musv"]])$("#"+a).oninput=e=>{$("#"+b).value=e.target.value;$("#"+b).dispatchEvent(new Event("input"));$("#"+a+"v").textContent=e.target.value+"%"};
@@ -663,7 +704,7 @@ $("#shide").onchange=async e=>{
 $("#srefresh").onclick=()=>{sfxClick();startDiscord()};
 $("#sdata").onclick=async()=>{
  sfxClick();serr("");if(!dcUser)return;
- const out={exportedAt:new Date().toISOString(),discord:{id:dcUser.id,name:dcUser.name,avatar:dcUser.avatar},
+ const out={exportedAt:new Date().toISOString(),username:dcUser.name,discord:{id:dcUser.id,avatar:dcUser.avatar},
   settings:{sfxVolume:+$("#sfxv").value,musicVolume:+$("#musv").value,reducedMotion:store.get(MOT_KEY)||"auto"},leaderboard:null};
  if(LB){try{out.leaderboard=await lbCall("/players/"+encodeURIComponent(myId)+".json","GET")}catch(e){serr("Couldn't fetch your leaderboard data, so the file doesn't include it ("+e.message+").")}}
  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:"application/json"}));
@@ -680,11 +721,21 @@ $("#sdel").onclick=async()=>{
 // ---- Discord login (OAuth2 implicit flow, "identify" scope only; the token is used once and never stored)
 const dcErr=t=>{$("#dcerr").textContent=t||""};
 function dcShow(){ // logged in -> main menu, otherwise the login screen
- const u=dcUser;myPic=dcPic;myName=u?u.name:"You";myId=u?u.id:"";
+ const u=dcUser;myPic=dcPic;myName=u&&u.name?u.name:"You";myId=u?u.id:"";
  if(u){$("#dcname").textContent=u.name;$("#dcav").src=u.avatar||"assets/dealer.png";banState="checking";
   getBan(u.id).then(b=>{if(dcUser!==u)return;if(b)showBanned(b);else{banState="ok";lbStart()}})}
- scr(u?"m-main":"m-login");
+ if(u&&!u.name){$("#nmin").value="";nmErr("");setTimeout(()=>$("#nmin").focus(),50)} // first login: pick a username
+ scr(!u?"m-login":u.name?"m-main":"m-name");
 }
+const nmErr=t=>{$("#nmerr").textContent=t||""};
+$("#nmform").onsubmit=async e=>{
+ e.preventDefault();if(!dcUser||dcUser.name||banState==="banned")return;
+ sfxClick();nmErr("");$("#nmgo").disabled=true;
+ const n=$("#nmin").value.trim(),err=await saveName(n);$("#nmgo").disabled=false;
+ if(err)return nmErr(err);
+ applyName(n);scr("m-main");lbStart();
+};
+$("#nmout").onclick=()=>$("#dcout").click();
 function dcApply(u){dcUser=u;dcPic=goodPic(u.pic);dcShow()}
 function avatarData(url){return new Promise((res,rej)=>{const im=new Image();im.crossOrigin="anonymous";
  im.onload=()=>{const o=document.createElement("canvas");o.width=o.height=160;o.getContext("2d").drawImage(im,0,0,160,160);try{res(o.toDataURL("image/jpeg",.88))}catch(e){rej(e)}};
@@ -696,7 +747,14 @@ async function dcFinish(token){
   if(!r.ok)throw new Error("HTTP "+r.status);const j=await r.json();
   const id=String(j.id),av=j.avatar?`https://cdn.discordapp.com/avatars/${id}/${j.avatar}.png?size=128`:`https://cdn.discordapp.com/embed/avatars/${Number((BigInt(id)>>22n)%6n)}.png`;
   let pic=null;try{pic=await avatarData(av)}catch(e){}
-  const u={id,name:clean(j.global_name||j.username),avatar:av,pic};
+  // The username is the player's own choice, not their Discord name. Reuse the one this browser remembers,
+  // let the leaderboard record (the source of truth) override it, and send brand-new players to the "choose a username" screen.
+  let name="";try{const o=JSON.parse(store.get("dpp_dc"));if(o&&String(o.id)===id&&o.name)name=clean(o.name)}catch(e){}
+  if(LB){
+   try{const cur=await lbCall("/players/"+encodeURIComponent(id)+"/name.json","GET");if(typeof cur==="string"&&cur.trim())name=clean(cur)}
+   catch(e){if(!name)throw new Error("couldn't check for your username ("+(e.name==="AbortError"?"timed out":e.message)+")")}
+  }
+  const u={id,name,avatar:av,pic};
   store.set("dpp_dc",JSON.stringify(u));dcErr("");dcApply(u);
  }catch(e){dcErr("Discord login failed: "+(e.message||e))}
  $("#dcin").disabled=false;
@@ -717,7 +775,7 @@ $("#dcout").onclick=()=>{sfxClick();dcUser=dcPic=myPic=null;banState="checking";
   if(err)dcErr(err==="access_denied"?"Discord login was cancelled.":"Discord login failed: "+err);
   else if(!want||hp.get("state")!==want)dcErr("Discord login failed: security check didn't match. Try again.");
   else dcFinish(tok)}
- else{try{const u=JSON.parse(store.get("dpp_dc"));if(u&&u.id&&u.name)dcApply({id:String(u.id),name:clean(u.name),avatar:/^https:\/\/cdn\.discordapp\.com\//.test(u.avatar)?u.avatar:"",pic:u.pic})}catch(e){}}
+ else{try{const u=JSON.parse(store.get("dpp_dc"));if(u&&u.id)dcApply({id:String(u.id),name:u.name?clean(u.name):"",avatar:/^https:\/\/cdn\.discordapp\.com\//.test(u.avatar)?u.avatar:"",pic:u.pic})}catch(e){}}
 }
 // the bot's dealer is a random character each time you start a bot game
 const CHARS=[{n:"Shopkeeper",i:null},{n:"The Wizard Grandmaster",i:"assets/chars/wizard.png"},{n:"The Biger F",i:"assets/chars/biger-f.png"},{n:"Npesta",i:"assets/chars/npesta.png"}];

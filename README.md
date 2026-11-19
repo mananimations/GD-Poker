@@ -37,22 +37,24 @@ Open `index.html` in a browser, or host it for free with GitHub Pages:
 
 ## Discord login (required)
 
-Players must log in with Discord before they can play. There is no separate name or picture: the Discord display name and avatar are used everywhere. After logging in they reach the game mode screen, which has their account (rank and wins), the global leaderboard, and the Play vs Bot / Play vs Player buttons.
+Players must log in with Discord before they can play. Discord is only used to prove who you are (your Discord ID) and for your avatar. Your **username is your own choice**: the first time you log in you are asked to create one, and you can change it whenever you like in Account settings. After that you reach the game mode screen, which has your account (rank and wins), the global leaderboard, and the Play vs Bot / Play vs Player buttons.
+
+Usernames are 3–14 characters (letters, numbers, `_`, `.`, `-`; no spaces), unique ignoring upper/lower case, and a few names like `admin` and `dealer` are reserved. The name is stored on your leaderboard record, so it follows you to other browsers and devices. Players who logged in before this change keep the name they had (their old Discord name) and can change it in settings. Uniqueness is checked by the game against the leaderboard data, like everything else here it isn't enforced by a server.
 
 Setup (one time):
 1. Go to <https://discord.com/developers/applications> and create an application.
 2. Under **OAuth2 → Redirects**, add the exact address the game is hosted at, e.g. `https://<your-username>.github.io/<repo-name>/` (add the `.../index.html` version too if you link to it).
 3. Copy the **Client ID** and paste it into `DISCORD_CLIENT_ID` at the top of `script.js`.
 
-It uses Discord's browser-only OAuth2 flow with the `identify` scope. The access token is used once to read the username and avatar, and is never stored. Only the name and a 160px avatar are kept in the browser, so players stay logged in until they press log out. It won't work when `index.html` is opened as a local file.
+It uses Discord's browser-only OAuth2 flow with the `identify` scope. The access token is used once to read your Discord ID and avatar, and is never stored. Your Discord name is not used. Only your username and a 160px avatar are kept in the browser, so players stay logged in until they press log out. It won't work when `index.html` is opened as a local file.
 
 ## Account settings
 
 On the game mode screen, **Account settings** opens a settings page with:
-- **Profile:** your Discord name and avatar (read-only here), plus a switch to hide yourself from the global leaderboard (your wins still count).
+- **Profile:** your avatar (from Discord), a **username** box to change your name any time, plus a switch to hide yourself from the global leaderboard (your wins still count).
 - **Sound & motion:** sound effects and music volume, reduced motion (follow system / always reduce / full animations) and a test sound button. Saved in this browser.
 - **Discord:** refresh your Discord picture by re-linking.
-- **Your data:** download a JSON copy of your Discord info, settings and leaderboard entry.
+- **Your data:** download a JSON copy of your username, Discord info, settings and leaderboard entry.
 - **Delete account:** type your username to delete your leaderboard entry and clear everything saved in the browser.
 
 ## Global leaderboard

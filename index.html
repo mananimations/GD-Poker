@@ -9,10 +9,21 @@
   <h1>★ DEMON PICTURE POKER ★</h1>
   <div id="m-login" class="mscr">
    <p>Log in to play</p>
-   <small>Sign in with your Discord account. Your Discord name and avatar are used in the game.</small>
+   <small>Sign in with your Discord account. Your Discord avatar is used in the game, and you choose your own username.</small>
    <button class="btn big" id="dcin">Log in with Discord</button>
    <div id="dcerr" class="err"></div>
    <small>Moderators may watch live games and chat.</small>
+  </div>
+  <div id="m-name" class="mscr" hidden>
+   <p>Choose your username</p>
+   <small>This is the name other players see in rooms, chat and on the leaderboard. You can change it any time in Account settings.</small>
+   <form id="nmform" autocomplete="off">
+    <input id="nmin" type="text" maxlength="14" placeholder="Username" autocomplete="off" spellcheck="false">
+    <button class="btn big" id="nmgo" type="submit">CONTINUE</button>
+   </form>
+   <small>3–14 characters: letters, numbers, _ . -</small>
+   <div id="nmerr" class="err"></div>
+   <button class="link" id="nmout" type="button">log out</button>
   </div>
   <div id="m-banned" class="mscr" hidden>
    <p>🚫 Account banned</p>
@@ -86,7 +97,10 @@
  <div id="setin">
   <div id="sethead"><button class="btn sm" id="setback">← BACK</button><h1>ACCOUNT SETTINGS</h1></div>
   <section class="mcard"><h3>PROFILE</h3>
-   <div id="sprof"><img id="sav" alt=""><div><b id="sname"></b><small>Your username and profile picture come from your Discord account.</small></div></div>
+   <div id="sprof"><img id="sav" alt=""><div><b id="sname"></b><small>Your profile picture comes from your Discord account. Your username is whatever you choose.</small></div></div>
+   <form id="sunform" class="srow2" autocomplete="off"><span>Username</span><input type="text" id="sun" maxlength="14" spellcheck="false" autocomplete="off"><button class="btn sm" id="sunsave" type="submit">SAVE</button></form>
+   <small>3–14 characters: letters, numbers, _ . -  You can change it whenever you like.</small>
+   <div id="sunmsg" class="err"></div>
    <label class="srow"><input type="checkbox" id="shide"> <span>Show me on the global leaderboard<small id="shidenote"></small></span></label>
   </section>
   <section class="mcard"><h3>SOUND &amp; MOTION</h3>
@@ -102,7 +116,7 @@
    <div><button class="btn sm" id="srefresh">REFRESH DISCORD PICTURE</button></div>
   </section>
   <section class="mcard"><h3>YOUR DATA</h3>
-   <p>Download a copy of everything stored about your account (Discord name, avatar, leaderboard wins and your settings) as a JSON file.</p>
+   <p>Download a copy of everything stored about your account (username, Discord ID and avatar, leaderboard wins and your settings) as a JSON file.</p>
    <div><button class="btn sm" id="sdata">DOWNLOAD MY DATA</button></div>
   </section>
   <section class="mcard danger"><h3>DELETE ACCOUNT</h3>

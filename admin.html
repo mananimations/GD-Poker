@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Admin · Demon Picture Poker</title>
+<style>
+:root{--bg:#1a0f2e;--panel:#2b1850;--ink:#0d0716;--red:#ff4d5e;--gold:#ffd23f;--txt:#fff4e6;--mut:rgba(255,244,230,.65);--ok:#4ade80;--card:rgba(0,0,0,.28)}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#4a1d6e,var(--bg) 70%) fixed;color:var(--txt);font-family:"Trebuchet MS",Verdana,sans-serif;font-size:14px}
+[hidden]{display:none!important}
+h1,h2,h3{margin:0}
+button,input,select{font:inherit}
+input[type=text],input[type=number],input[type=email],input[type=password],select{background:#fffaf0;color:var(--ink);border:3px solid var(--ink);border-radius:8px;padding:7px 9px;min-width:0}
+input[type=range]{accent-color:var(--gold);width:100%}
+small,.mut{color:var(--mut)}
+.btn{font-weight:900;background:var(--red);color:#fff;border:3px solid var(--ink);border-radius:10px;padding:7px 14px;cursor:pointer;box-shadow:0 4px 0 var(--ink)}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+.btn:disabled{background:#666;cursor:not-allowed;box-shadow:0 4px 0 var(--ink)}
+.btn.sm{font-size:12px;padding:4px 9px;box-shadow:0 3px 0 var(--ink)}
+.btn.alt{background:#7c3aed}.btn.dim{background:#3a2370}.btn.gold{background:var(--gold);color:var(--ink)}.btn.danger{background:#c0283a}
+.link{background:none;border:0;color:var(--gold);text-decoration:underline;cursor:pointer;padding:0}
+.panel{background:var(--panel);border:4px solid var(--ink);border-radius:16px;box-shadow:0 5px 0 var(--ink),0 0 0 2px var(--gold);padding:14px}
+.panel.red{box-shadow:0 5px 0 var(--ink),0 0 0 2px var(--red)}
+.chip{display:inline-block;font-size:11px;font-weight:900;border:2px solid var(--ink);border-radius:999px;padding:1px 8px;background:#3a2370;color:#fff;white-space:nowrap}
+.chip.g{background:var(--gold);color:var(--ink)}.chip.r{background:var(--red)}.chip.ok{background:var(--ok);color:var(--ink)}
+.av{width:30px;height:30px;border-radius:50%;object-fit:cover;background:var(--ink);border:2px solid #5865F2;flex:none}
+
+/* login */
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+#lbox{width:100%;max-width:440px;display:flex;flex-direction:column;gap:12px}
+#lbox h1{text-align:center;color:var(--gold);text-shadow:3px 3px 0 var(--ink);font-size:24px}
+#lbox label{display:flex;flex-direction:column;gap:3px;font-weight:900;font-size:12px;letter-spacing:.5px}
+.err{color:#ff9aa5;font-weight:bold;white-space:pre-wrap}.err:empty{display:none}
+details{background:var(--card);border-radius:10px;padding:8px 10px}summary{cursor:pointer;font-weight:900}
+details ol{margin:8px 0 0;padding-left:20px;line-height:1.5}
+code{background:var(--ink);border-radius:5px;padding:1px 5px;font-size:12px;word-break:break-all}
+
+/* app */
+header{position:sticky;top:0;z-index:20;background:var(--ink);border-bottom:3px solid var(--gold);display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 14px}
+header h1{font-size:16px;color:var(--gold);letter-spacing:1px}
+nav{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+nav button{background:var(--panel);color:var(--txt);border:2px solid #3a2370;border-radius:8px;padding:5px 12px;font-weight:900;cursor:pointer}
+nav button.on{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+#who{font-size:12px}
+#conn{font-size:12px;font-weight:900}#conn.ok{color:var(--ok)}#conn.bad{color:var(--red)}
+#warn{background:var(--red);color:#fff;font-weight:900;padding:8px 14px;text-align:center}
+main{max-width:1250px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.bar .sp{flex:1}
+.tab>.panel+.panel{margin-top:14px}
+
+/* live */
+#games{display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:14px}
+.game{display:flex;flex-direction:column;gap:8px}.game.stale{opacity:.55}
+.gh{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.gp{display:flex;flex-direction:column;gap:5px;background:var(--card);border-radius:10px;padding:8px}
+.gpt{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.gpt b{font-size:15px}
+.hand{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.ct{position:relative;aspect-ratio:5/7;background:linear-gradient(135deg,#4a1d6e,#1a0f2e) center/cover;border:3px solid var(--c);border-radius:7px;overflow:hidden;box-shadow:0 3px 0 var(--ink)}
+.ct.apex{box-shadow:0 0 12px 3px var(--gold)}
+.ctp{position:absolute;top:2px;left:2px;background:var(--ink);color:var(--gold);font-weight:900;font-size:11px;border-radius:4px;padding:0 4px}
+.ctn{position:absolute;bottom:0;left:0;right:0;background:rgba(13,7,22,.82);font-size:10px;font-weight:900;line-height:1.1;text-align:center;padding:2px;max-height:34%;overflow:hidden}
+.ct.empty{background:repeating-linear-gradient(45deg,#c0283a 0 6px,#ff4d5e 6px 12px);opacity:.35}
+.ct.dis{filter:grayscale(.9) brightness(.55)}
+.ct.dis:after{content:"DISCARD";position:absolute;top:40%;left:-3px;right:-3px;text-align:center;background:var(--red);color:#fff;font-weight:900;font-size:10px;transform:rotate(-8deg);border:2px solid var(--ink)}
+.chat{background:var(--card);border-radius:8px;padding:6px 8px;font-size:12px;max-height:120px;overflow:auto;word-break:break-word}.chat b{color:var(--gold)}
+.res{font-weight:900;color:var(--gold);font-size:13px}
+.empty-msg{padding:30px;text-align:center;color:var(--mut)}
+
+/* tables */
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%}
+th{font-size:11px;letter-spacing:1px;color:var(--gold);text-align:left;padding:6px 8px;white-space:nowrap}
+td{padding:6px 8px;border-top:1px solid rgba(255,255,255,.08);vertical-align:middle}
+td.n{display:flex;align-items:center;gap:8px;min-width:150px}td.act{display:flex;gap:5px;flex-wrap:wrap}
+tr.banned td{background:rgba(255,77,94,.12)}
+.idc{cursor:pointer;font-size:11px}
+
+/* power */
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.preset{text-align:left;background:var(--card);border:3px solid #3a2370;border-radius:12px;padding:10px;color:var(--txt);cursor:pointer;display:flex;flex-direction:column;gap:3px}
+.preset:hover{border-color:var(--gold)}.preset b{color:var(--gold);font-size:15px}.preset span{font-size:12px;color:var(--mut)}
+.sl{display:grid;grid-template-columns:150px 1fr 70px;gap:10px;align-items:center;margin:6px 0}.sl b{text-align:right}
+#pact{display:flex;flex-direction:column;gap:6px}
+#pact.on{background:linear-gradient(135deg,#6b4a00,var(--panel))}
+.big{font-size:26px;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums}
+
+/* grants */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:900px){.two{grid-template-columns:1fr}.sl{grid-template-columns:1fr}}
+#lres{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:8px;max-height:430px;overflow:auto;padding:4px}
+#lres .ct,#tray .ct{cursor:pointer}#lres .ct:hover{outline:3px solid var(--gold)}
+#tray{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:8px 0}
+.fl{display:flex;flex-direction:column;gap:3px;font-weight:900;font-size:12px;margin-bottom:8px}
+.cl{display:flex;gap:4px;flex-wrap:wrap}.cl .chip{max-width:170px;overflow:hidden;text-overflow:ellipsis}
+
+/* modal + toast */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
+.mb{width:100%;max-width:420px;background:var(--panel);border:4px solid var(--gold);border-radius:16px;box-shadow:0 6px 0 var(--ink);padding:16px;display:flex;flex-direction:column;gap:10px}
+.mb.danger{border-color:var(--red)}.mb h3{color:var(--gold)}.mb p{margin:0;color:var(--mut);line-height:1.4}
+.mbr{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+.mb label.ck{flex-direction:row;align-items:center;gap:8px}.mb label.ck input{width:18px;height:18px}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:200;background:var(--ink);border:3px solid var(--gold);border-radius:999px;padding:8px 18px;font-weight:900;max-width:90vw;text-align:center}
+#toast.bad{border-color:var(--red);color:#ff9aa5}
+</style></head><body>
+
+<!-- ============ SIGN IN ============ -->
+<div id="login"><div id="lbox" class="panel red">
+ <h1>★ ADMIN PANEL ★</h1>
+ <small style="text-align:center">Private. Sign in with the admin account you created in Firebase.</small>
+ <label>Email<input type="email" id="lem" autocomplete="username"></label>
+ <label>Password<input type="password" id="lpw" autocomplete="current-password"></label>
+ <label>Firebase Web API key <input type="password" id="lkey" autocomplete="off" placeholder="AIza…"></label>
+ <label>Database URL <input type="text" id="ldb" autocomplete="off"></label>
+ <button class="btn" id="lgo">SIGN IN</button>
+ <div id="lerr" class="err"></div>
+ <details><summary>First-time setup (5 minutes)</summary>
+  <ol>
+   <li>Firebase console → <b>Build → Authentication → Get started</b> → enable <b>Email/Password</b>.</li>
+   <li>On the <b>Users</b> tab click <b>Add user</b>: make your admin email + a long password. Copy the <b>User UID</b>.</li>
+   <li><b>Realtime Database → Rules</b>: paste the contents of <code>firebase-rules.json</code>, replace every <code>PASTE_YOUR_ADMIN_UID_HERE</code> with that UID, and Publish.</li>
+   <li><b>Project settings → General → Web API key</b>: paste it above. It's stored only in this browser.</li>
+  </ol>
+ </details>
+</div></div>
+
+<!-- ============ APP ============ -->
+<div id="app" hidden>
+ <header>
+  <h1>★ POKER ADMIN</h1>
+  <nav id="nav">
+   <button data-t="live" class="on">👁 Live games</button>
+   <button data-t="players">🏆 Players</button>
+   <button data-t="grants">🎁 Card grants</button>
+   <button data-t="power">⚡ Power hours</button>
+   <button data-t="bans">🚫 Bans</button>
+   <button data-t="log">📜 Log</button>
+  </nav>
+  <span id="conn" class="ok">● connected</span><span id="who" class="mut"></span>
+  <button class="btn sm dim" id="out">Sign out</button>
+ </header>
+ <div id="warn" hidden></div>
+ <main>
+
+  <!-- LIVE -->
+  <section class="tab" id="t-live">
+   <div class="bar" style="margin-bottom:12px">
+    <h2>Live games</h2><span id="lcount" class="mut"></span><span class="sp"></span>
+    <label class="mut"><input type="checkbox" id="showStale"> show stale</label>
+    <button class="btn sm dim" id="clearStale">Clear stale</button>
+   </div>
+   <div id="games"></div>
+  </section>
+
+  <!-- PLAYERS -->
+  <section class="tab" id="t-players" hidden>
+   <div class="panel">
+    <div class="bar" style="margin-bottom:10px">
+     <h2>Players &amp; leaderboard</h2><span id="pcount" class="mut"></span><span class="sp"></span>
+     <input type="text" id="pq" placeholder="Search name or Discord ID" style="width:240px">
+     <button class="btn sm dim" id="prefresh">↻ Refresh</button>
+     <button class="btn sm dim" id="pbackup">⬇ Backup JSON</button>
+     <button class="btn sm danger" id="preset">Reset leaderboard…</button>
+    </div>
+    <div class="tw"><table><thead><tr><th>RANK</th><th>PLAYER</th><th>DISCORD ID</th><th>WINS</th><th></th><th>ACTIONS</th></tr></thead><tbody id="ptb"></tbody></table></div>
+   </div>
+  </section>
+
+  <!-- GRANTS -->
+  <section class="tab" id="t-grants" hidden>
+   <div class="two">
+    <div class="panel">
+     <h2>1 · Pick the cards</h2>
+     <small>The player's next dealt round will start with these cards. Cards are taken out of the deck, so nobody else is dealt a duplicate.</small>
+     <div class="bar" style="margin-top:8px"><input type="text" id="lq" placeholder="Search level name or list position…" style="flex:1"><button class="btn sm gold" id="lapex">👑 Add #1</button></div>
+     <div id="lstat" class="mut" style="margin-top:6px"></div>
+     <div id="lres"></div>
+    </div>
+    <div class="panel">
+     <h2>2 · Choose the player</h2>
+     <div id="tray"></div>
+     <label class="fl">Discord ID (pick from the list or paste one)<input type="text" id="gid" list="plist" autocomplete="off" placeholder="e.g. 123456789012345678"></label>
+     <datalist id="plist"></datalist>
+     <div id="gwho" class="mut" style="margin:-4px 0 8px"></div>
+     <label class="fl">Note (only you see it)<input type="text" id="gnote" maxlength="80"></label>
+     <button class="btn gold" id="gsend">🎁 Queue for their next round</button>
+    </div>
+   </div>
+   <div class="panel" style="margin-top:14px">
+    <div class="bar" style="margin-bottom:8px"><h2>Queued grants</h2><span class="sp"></span><button class="btn sm dim" id="grefresh">↻ Refresh</button><button class="btn sm dim" id="gclear">Clear used</button></div>
+    <div class="tw"><table><thead><tr><th>PLAYER</th><th>CARDS</th><th>NOTE</th><th>QUEUED</th><th>STATUS</th><th></th></tr></thead><tbody id="gtb"></tbody></table></div>
+   </div>
+  </section>
+
+  <!-- POWER -->
+  <section class="tab" id="t-power" hidden>
+   <div class="panel" id="pact"></div>
+   <div class="panel">
+    <h2>Presets</h2><small>Click one to fill in the form below, tweak it, then start it.</small>
+    <div class="pgrid" id="presets" style="margin-top:10px"></div>
+   </div>
+   <div class="panel">
+    <h2>Start a power hour</h2>
+    <div class="bar" style="margin:10px 0">
+     <label class="fl" style="flex:1;min-width:200px;margin:0">Name (players see this)<input type="text" id="pn" maxlength="30" value="Power Hour"></label>
+     <label class="fl" style="width:140px;margin:0">Minutes<input type="number" id="pm" min="1" max="1440" value="60"></label>
+    </div>
+    <div class="sl"><span>#1 card chance</span><input type="range" id="s_apexPct" min="0" max="100" step="1" value="0"><b></b></div>
+    <small>Chance per hand (rolled on the deal and again on the draw) that the #1 card is slipped in. #1 wins the game instantly.</small>
+    <div class="sl"><span>Match chance</span><input type="range" id="s_matchPct" min="0" max="100" step="1" value="0"><b></b></div>
+    <small>Chance per hand that a same-rarity card is added to your biggest group (pair → trips, etc).</small>
+    <div class="sl"><span>Rare-card boost</span><input type="range" id="s_rarePct" min="0" max="100" step="1" value="0"><b></b></div>
+    <small>Chance per card that it's swapped for an Epic-or-better card.</small>
+    <div class="sl"><span>Payout multiplier</span><input type="range" id="s_payMult" min="1" max="10" step="0.5" value="1"><b></b></div>
+    <small>Coins won are multiplied.</small>
+    <div class="sl"><span>Leaderboard win multiplier</span><input type="range" id="s_winMult" min="1" max="5" step="1" value="1"><b></b></div>
+    <small>Each PvP win counts this many wins on the global leaderboard.</small>
+    <div class="bar" style="margin-top:12px"><button class="btn gold" id="pstart">⚡ START POWER HOUR</button><span id="perr" class="err"></span></div>
+   </div>
+  </section>
+
+  <!-- BANS -->
+  <section class="tab" id="t-bans" hidden>
+   <div class="panel red">
+    <h2>Ban a Discord account</h2>
+    <div class="bar" style="margin-top:10px">
+     <input type="text" id="bid" placeholder="Discord ID" list="plist" style="width:220px">
+     <input type="text" id="bre" placeholder="Reason (optional, shown to them)" maxlength="120" style="flex:1;min-width:200px">
+     <label class="mut"><input type="checkbox" id="bwipe" checked> also remove from leaderboard</label>
+     <button class="btn danger" id="bgo">Ban</button>
+    </div>
+   </div>
+   <div class="panel">
+    <div class="bar" style="margin-bottom:8px"><h2>Banned accounts</h2><span id="bcount" class="mut"></span><span class="sp"></span><button class="btn sm dim" id="brefresh">↻ Refresh</button></div>
+    <div class="tw"><table><thead><tr><th>ACCOUNT</th><th>DISCORD ID</th><th>REASON</th><th>WHEN</th><th></th></tr></thead><tbody id="btb"></tbody></table></div>
+   </div>
+  </section>
+
+  <!-- LOG -->
+  <section class="tab" id="t-log" hidden>
+   <div class="panel">
+    <div class="bar" style="margin-bottom:8px"><h2>Admin log</h2><span class="sp"></span><button class="btn sm dim" id="lgrefresh">↻ Refresh</button></div>
+    <div class="tw"><table><thead><tr><th>WHEN</th><th>ACTION</th><th>DETAIL</th></tr></thead><tbody id="ltb"></tbody></table></div>
+   </div>
+  </section>
+ </main>
+</div>
+<div id="toast" hidden></div>
+
+<script>
+"use strict";
+const DEFAULT_DB="https://gd-poker-default-rtdb.firebaseio.com"; // same database as LEADERBOARD_DB in script.js
+const $=s=>document.querySelector(s);
+const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+const sess={get:k=>{try{return sessionStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{sessionStorage.setItem(k,v)}catch(e){}},del:k=>{try{sessionStorage.removeItem(k)}catch(e){}}};
+const S={key:store.get("adm_key")||"",db:(store.get("adm_db")||DEFAULT_DB).replace(/\/+$/,""),tok:"",exp:0,rt:"",uid:"",email:""};
+
+/* ---------- tiny helpers ---------- */
+function h(tag,attrs,...kids){ // builds DOM with textContent only, so player-supplied names/chat can never inject HTML
+ const e=document.createElement(tag);
+ for(const[k,v]of Object.entries(attrs||{})){
+  if(k==="class")e.className=v;else if(k==="text")e.textContent=v;else if(k==="style")e.style.cssText=v;
+  else if(k.startsWith("on"))e[k]=v;else if(v===true)e.setAttribute(k,"");else if(v!==false&&v!=null)e.setAttribute(k,v)}
+ e.append(...kids.flat(9).filter(c=>c!=null&&c!==false));return e}
+const RAR=[["Common","#9aa0a6"],["Uncommon","#4ade80"],["Rare","#38bdf8"],["Epic","#a855f7"],["Legendary","#fb923c"],["Mythic","#ef4444"],["Ethereal","#67e8f9"],["Apex","#ffd23f"]];
+const tierOf=p=>p<=1?7:p<20?6:p<100?5:p<300?4:p<500?3:p<750?2:p<1000?1:0;
+const okAv=u=>typeof u==="string"&&/^https:\/\/cdn\.discordapp\.com\//.test(u);
+const DEF_AV="data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" fill="#3a2370"/><circle cx="5" cy="4" r="2" fill="#9a8cc0"/><path d="M1.5 10a3.5 3.5 0 017 0z" fill="#9a8cc0"/></svg>');
+const avatar=u=>h("img",{class:"av",src:okAv(u)?u:DEF_AV,alt:"",referrerpolicy:"no-referrer"});
+const ago=t=>{const s=Math.max(0,(Date.now()-(+t||0))/1000|0);return s<60?s+"s ago":s<3600?(s/60|0)+"m ago":s<86400?(s/3600|0)+"h ago":(s/86400|0)+"d ago"};
+const validId=s=>/^[0-9]{5,25}$/.test(s);
+const enc=encodeURIComponent;
+let toastT=0;
+function toast(msg,bad){const t=$("#toast");t.textContent=msg;t.className=bad?"bad":"";t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,bad?6000:2800)}
+const fail=(e,what)=>{console.error(e);toast((what?what+": ":"")+(e&&e.message||e),true)};
+function tile(c,o){ // c = {n,p,y}
+ const p=+c.p||0,t=RAR[tierOf(p)];
+ const d=h("div",{class:"ct"+(p===1?" apex":"")+(o&&o.dis?" dis":""),style:"--c:"+t[1],title:`#${p} ${String(c.n||"")} (${t[0]})`},h("div",{class:"ctp",text:"#"+p}),h("div",{class:"ctn",text:String(c.n||"").slice(0,40)}));
+ if(/^[\w-]{11}$/.test(c.y||""))d.style.backgroundImage=`url(https://i.ytimg.com/vi/${c.y}/mqdefault.jpg)`;
+ return d}
+
+/* ---------- modal prompt ---------- */
+// fields: [{k,label,type:"text"|"number"|"checkbox",value,placeholder}], resolves to {k:value} or null if cancelled
+function ask({title,note,fields=[],ok="OK",danger,check}){
+ return new Promise(res=>{
+  const inputs={},err=h("div",{class:"err"});
+  const body=fields.map(f=>{
+   const i=h("input",{type:f.type||"text",placeholder:f.placeholder||"",autocomplete:"off",min:f.min,max:f.max});
+   if(f.type==="checkbox")i.checked=!!f.value;else if(f.value!=null)i.value=f.value;inputs[f.k]=i;
+   return f.type==="checkbox"?h("label",{class:"fl ck"},i,f.label):h("label",{class:"fl"},f.label,i)});
+  const done=v=>{ov.remove();document.removeEventListener("keydown",key);res(v)};
+  const submit=()=>{const v={};for(const f of fields)v[f.k]=f.type==="checkbox"?inputs[f.k].checked:f.type==="number"?inputs[f.k].valueAsNumber:inputs[f.k].value.trim();
+   const m=check&&check(v);if(m){err.textContent=m;return}done(v)};
+  const key=e=>{if(e.key==="Escape")done(null);else if(e.key==="Enter"&&e.target.tagName==="INPUT")submit()};
+  const ov=h("div",{class:"ov",onmousedown:e=>{if(e.target===ov)done(null)}},h("div",{class:"mb"+(danger?" danger":"")},h("h3",{text:title}),note?h("p",{text:note}):null,...body,err,
+   h("div",{class:"mbr"},h("button",{class:"btn dim",onclick:()=>done(null)},"Cancel"),h("button",{class:"btn"+(danger?" danger":" gold"),onclick:submit},ok))));
+  document.body.append(ov);document.addEventListener("keydown",key);
+  const f=Object.values(inputs)[0];if(f)f.focus();else ov.querySelector(".btn:last-child").focus();
+ })}
+const confirmBox=(title,note,ok,danger)=>ask({title,note,ok,danger}).then(Boolean);
+
+/* ---------- Firebase auth (email/password) + Realtime Database REST ---------- */
+const AUTH_ERR={EMAIL_NOT_FOUND:"No admin account with that email.",INVALID_PASSWORD:"Wrong password.",INVALID_LOGIN_CREDENTIALS:"Wrong email or password.",USER_DISABLED:"That account is disabled.",OPERATION_NOT_ALLOWED:"Email/Password sign-in isn't enabled in Firebase Authentication.",TOO_MANY_ATTEMPTS_TRY_LATER:"Too many attempts. Wait a few minutes.",INVALID_EMAIL:"That doesn't look like an email address.",TOKEN_EXPIRED:"Session expired, sign in again.",INVALID_REFRESH_TOKEN:"Session expired, sign in again."};
+const authErr=m=>{m=String(m||"");return AUTH_ERR[m.split(" ")[0]]||(/API key/i.test(m)?"That Web API key isn't valid.":m||"Sign-in failed.")};
+function setTok(j){S.tok=j.idToken||j.id_token;S.rt=j.refreshToken||j.refresh_token;S.exp=Date.now()+(+(j.expiresIn||j.expires_in)||3600)*1000;S.uid=j.localId||j.user_id||S.uid;S.email=j.email||S.email;
+ sess.set("adm_rt",S.rt);sess.set("adm_email",S.email)}
+async function signIn(email,pw){
+ const r=await fetch("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key="+enc(S.key),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:pw,returnSecureToken:true})});
+ const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(authErr(j.error&&j.error.message));setTok(j)}
+async function refreshTok(){
+ const r=await fetch("https://securetoken.googleapis.com/v1/token?key="+enc(S.key),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"grant_type=refresh_token&refresh_token="+enc(S.rt)});
+ const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(authErr(j.error&&j.error.message));setTok(j)}
+async function api(path,method="GET",body){
+ if(!S.tok||Date.now()>S.exp-90000)await refreshTok();
+ const r=await fetch(S.db+path+(path.includes("?")?"&":"?")+"auth="+enc(S.tok),{method,body:body===undefined?undefined:JSON.stringify(body)});
+ if(r.status===401||r.status===403)throw new Error("Permission denied. Check the database rules contain your admin UID ("+S.uid+").");
+ if(!r.ok)throw new Error("Database error HTTP "+r.status);
+ return r.json()}
+const audit=(action,detail)=>api("/adminlog.json","POST",{ts:{".sv":"timestamp"},who:S.email,action,detail:String(detail).slice(0,300)}).catch(()=>{});
+
+/* ---------- sign in flow ---------- */
+$("#lem").value=sess.get("adm_email")||store.get("adm_email")||"";$("#lkey").value=S.key;$("#ldb").value=S.db;
+const lerr=t=>$("#lerr").textContent=t||"";
+async function enter(){
+ // prove this account really is the admin (reading /bans only works for the admin UID in the rules)
+ try{await api("/bans.json?shallow=true")}catch(e){S.tok="";sess.del("adm_rt");throw new Error(/Permission denied/.test(e.message)?"You signed in, but this account isn't the admin in your database rules.\nYour UID is: "+S.uid+"\nPaste it into firebase-rules.json (replace PASTE_YOUR_ADMIN_UID_HERE) and publish the rules.":e.message)}
+ $("#login").hidden=true;$("#app").hidden=false;$("#who").textContent=S.email;
+ checkLocked();show("live");loadPlayers().catch(e=>fail(e,"Players"));loadLevels();
+}
+async function checkLocked(){ // if strangers can read admin-only data, the rules aren't installed
+ let open=[];
+ for(const p of["/bans.json?shallow=true","/live.json?shallow=true","/grants.json?shallow=true"]){
+  try{const r=await fetch(S.db+p);if(r.ok)open.push(p.split(".")[0])}catch(e){}}
+ const w=$("#warn");w.hidden=!open.length;
+ if(open.length)w.textContent="⚠ Your database rules are NOT locked down: anyone can read "+open.join(", ")+". Publish firebase-rules.json (with your admin UID) in Firebase → Realtime Database → Rules."}
+$("#lgo").onclick=async()=>{
+ lerr("");const email=$("#lem").value.trim(),pw=$("#lpw").value;S.key=$("#lkey").value.trim();S.db=($("#ldb").value.trim()||DEFAULT_DB).replace(/\/+$/,"");
+ if(!email||!pw||!S.key)return lerr("Enter your email, password and Web API key.");
+ store.set("adm_key",S.key);store.set("adm_db",S.db);store.set("adm_email",email);$("#lgo").disabled=true;
+ try{await signIn(email,pw);$("#lpw").value="";await enter()}catch(e){lerr(e.message)}
+ $("#lgo").disabled=false};
+$("#lpw").onkeydown=e=>{if(e.key==="Enter")$("#lgo").click()};
+$("#out").onclick=()=>{sess.del("adm_rt");location.reload()};
+(async()=>{const rt=sess.get("adm_rt");if(!rt||!S.key)return;S.rt=rt;S.email=sess.get("adm_email")||"";try{await refreshTok();await enter()}catch(e){lerr(e.message)}})();
+
+/* ---------- tabs ---------- */
+let tab="live";
+function show(t){tab=t;document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
+ document.querySelectorAll(".tab").forEach(s=>s.hidden=s.id!=="t-"+t);
+ if(t==="live")pollLive();if(t==="players")loadPlayers().catch(e=>fail(e));if(t==="grants"){loadGrants();ensureLevels()}if(t==="power")loadPower();if(t==="bans")loadBans();if(t==="log")loadLog()}
+$("#nav").onclick=e=>{const b=e.target.closest("button");if(b)show(b.dataset.t)};
+const setConn=ok=>{const c=$("#conn");c.className=ok?"ok":"bad";c.textContent=ok?"● connected":"● connection problem"};
+
+/* ---------- LIVE GAMES ---------- */
+const slots=x=>[0,1,2,3,4].map(i=>x&&typeof x==="object"?x[i]:undefined); // Firebase may return arrays as {0:..,1:..} objects, or drop empty ones
+const listOf=x=>Array.isArray(x)?x:(x&&typeof x==="object"?Object.keys(x).sort((a,b)=>a-b).map(k=>x[k]):[]);
+const STAGES={idle:"waiting to deal",dealing:"dealing…",holding:"choosing discards",drawing:"drawing",result:"round over"};
+const LIVE=new Map();let liveBusy=false,staleIds=[];
+function playerBlock(p,g,opp){
+ const info=PLAYERS[p.id]||{},isBot=!p.id;
+ const hand=slots(p.hand),held=slots(p.held);
+ return h("div",{class:"gp"},
+  h("div",{class:"gpt"},isBot?null:avatar(info.av),h("b",{text:String(p.name||"?").slice(0,30)}),
+   isBot?h("span",{class:"chip",text:"dealer bot"}):h("small",{class:"idc",text:p.id,title:"Click to copy",onclick:()=>copy(p.id)}),
+   BANS[p.id]?h("span",{class:"chip r",text:"BANNED"}):null,
+   isBot?null:h("button",{class:"btn sm gold",onclick:()=>giveTo(p.id)},"🎁 Give cards"),
+   isBot?null:h("button",{class:"btn sm danger",onclick:()=>banDialog(p.id,p.name)},"Ban")),
+  h("div",{class:"hand"},[0,1,2,3,4].map(i=>hand[i]?tile(hand[i],{dis:g.stage==="holding"&&held[i]===false}):h("div",{class:"ct empty"}))))}
+function gameNode(g,stale){
+ const chat=listOf(g.chat).slice(-10);
+ return h("div",{class:"panel game"+(stale?" stale":"")},
+  h("div",{class:"gh"},h("span",{class:"chip g",text:g.mode==="pvp"?"PLAYER vs PLAYER":"VS BOT"+(g.diff?" · "+String(g.diff).toUpperCase():"")}),
+   h("span",{class:"chip",text:STAGES[g.stage]||String(g.stage||"")}),h("span",{class:"chip",text:"bet "+(+g.bet||0)}),h("span",{class:"mut age"}),stale?h("span",{class:"chip r",text:"STALE"}):null),
+  playerBlock(g.a||{},g),playerBlock(g.b||{},g),
+  g.res?h("div",{class:"res",text:String(g.res)}):null,
+  g.mode==="pvp"?h("div",{class:"chat"},chat.length?chat.map(c=>h("div",{},h("b",{text:String(c.w||"?")+": "}),String(c.x||""))):h("span",{class:"mut",text:"no chat yet"})):null)}
+function renderLive(d){
+ const list=$("#games"),showStale=$("#showStale").checked,now=Date.now();
+ const rows=Object.entries(d||{}).filter(([k,g])=>g&&typeof g==="object").sort((x,y)=>(+y[1].ts||0)-(+x[1].ts||0));
+ let live=0;staleIds=[];const seen=new Set(),order=[];
+ for(const[mid,g]of rows){
+  const stale=now-(+g.ts||0)>90000;if(stale)staleIds.push(mid);else live++;
+  if(stale&&!showStale)continue;
+  const{ts,...rest}=g,sig=JSON.stringify(rest)+stale+Object.keys(PLAYERS).length+Object.keys(BANS).length;
+  let e=LIVE.get(mid);if(!e||e.sig!==sig){e={sig,node:gameNode(g,stale)};LIVE.set(mid,e)}
+  e.node.querySelector(".age").textContent="updated "+ago(g.ts);seen.add(mid);order.push(e.node)}
+ for(const k of[...LIVE.keys()])if(!seen.has(k))LIVE.delete(k);
+ list.replaceChildren(...order);
+ if(!order.length)list.append(h("div",{class:"panel empty-msg",text:"No games being played right now. Games appear here the moment a player deals."}));
+ $("#lcount").textContent=`${live} live${staleIds.length?" · "+staleIds.length+" stale":""}`}
+async function pollLive(){
+ if(!S.tok||tab!=="live"||document.hidden||liveBusy)return;liveBusy=true;
+ try{renderLive(await api("/live.json"));setConn(true)}catch(e){setConn(false);console.error(e)}liveBusy=false}
+setInterval(pollLive,2000);setInterval(()=>{if(S.tok&&tab==="live")loadPlayers().catch(()=>{});loadBans(true).catch(()=>{})},30000);
+$("#showStale").onchange=pollLive;
+$("#clearStale").onclick=async()=>{if(!staleIds.length)return toast("No stale games");const u={};staleIds.forEach(k=>u[k]=null);
+ try{await api("/live.json","PATCH",u);toast("Cleared "+staleIds.length);pollLive()}catch(e){fail(e)}};
+const copy=t=>{try{navigator.clipboard.writeText(t);toast("Copied "+t)}catch(e){}};
+
+/* ---------- PLAYERS & LEADERBOARD ---------- */
+let PLAYERS={},BANS={};
+const plist=()=>Object.entries(PLAYERS).filter(([id,p])=>p&&typeof p==="object").map(([id,p])=>({id,name:String(p.name||"?"),av:p.av,wins:+p.wins||0,hidden:p.hidden===true}));
+async function loadPlayers(){PLAYERS=await api("/players.json")||{};renderPlayers();$("#plist").replaceChildren(...plist().map(p=>h("option",{value:p.id},p.name)))}
+function renderPlayers(){
+ const all=plist(),q=$("#pq").value.trim().toLowerCase();
+ const ranked=all.filter(p=>p.wins>0&&!p.hidden);
+ const rank=p=>p.wins>0&&!p.hidden?1+ranked.filter(x=>x.wins>p.wins).length:null;
+ let rows=all.sort((a,b)=>b.wins-a.wins||a.name.localeCompare(b.name)).filter(p=>!q||p.name.toLowerCase().includes(q)||p.id.includes(q));
+ const total=rows.length;rows=rows.slice(0,300);
+ $("#pcount").textContent=`${all.length} players · ${ranked.length} on the board`+(total>300?" · showing first 300, use search":"");
+ $("#ptb").replaceChildren(...rows.map(p=>{const r=rank(p),b=BANS[p.id];
+  return h("tr",{class:b?"banned":""},h("td",{text:r?"#"+r:"—"}),
+   h("td",{class:"n"},avatar(p.av),h("b",{text:p.name.slice(0,30)})),
+   h("td",{},h("small",{class:"idc",text:p.id,title:"Click to copy",onclick:()=>copy(p.id)})),
+   h("td",{},h("b",{text:String(p.wins)})),
+   h("td",{},p.hidden?h("span",{class:"chip",text:"hidden"}):null," ",b?h("span",{class:"chip r",text:"BANNED"}):null),
+   h("td",{class:"act"},
+    h("button",{class:"btn sm gold",onclick:()=>setWins(p)},"Set wins"),
+    h("button",{class:"btn sm dim",disabled:!p.wins,onclick:()=>zeroWins(p)},"Zero wins"),
+    h("button",{class:"btn sm dim",onclick:()=>removePlayer(p)},"Remove"),
+    h("button",{class:"btn sm alt",onclick:()=>giveTo(p.id)},"🎁"),
+    b?h("button",{class:"btn sm",onclick:()=>unban(p.id,p.name)},"Unban"):h("button",{class:"btn sm danger",onclick:()=>banDialog(p.id,p.name)},"Ban")))}));
+ if(!rows.length)$("#ptb").append(h("tr",{},h("td",{colspan:6,class:"empty-msg",text:"No players found."})))}
+$("#pq").oninput=renderPlayers;$("#prefresh").onclick=()=>loadPlayers().then(()=>toast("Refreshed")).catch(e=>fail(e));
+async function setWins(p){
+ const v=await ask({title:"Set wins for "+p.name,note:`Currently ${p.wins}. This changes their leaderboard score.`,fields:[{k:"n",label:"New number of wins",type:"number",value:p.wins,min:0}],ok:"Save",check:v=>Number.isInteger(v.n)&&v.n>=0?"":"Enter a whole number, 0 or more"});
+ if(!v)return;try{await api("/players/"+enc(p.id)+"/wins.json","PUT",v.n);audit("set wins",`${p.name} (${p.id}): ${p.wins} → ${v.n}`);toast("Saved");loadPlayers()}catch(e){fail(e)}}
+async function zeroWins(p){
+ if(!await confirmBox("Remove win progress?",`${p.name} goes from ${p.wins} wins to 0. They stay in the system and can earn wins again.`,"Zero their wins",true))return;
+ try{await api("/players/"+enc(p.id)+"/wins.json","PUT",0);audit("zero wins",`${p.name} (${p.id}) had ${p.wins}`);toast("Wins removed");loadPlayers()}catch(e){fail(e)}}
+async function removePlayer(p){
+ if(!await confirmBox("Remove from leaderboard?",`Deletes ${p.name}'s whole entry (name, avatar, ${p.wins} wins). It is recreated at 0 wins if they log in again. To stop them playing, use Ban instead.`,"Remove",true))return;
+ try{await api("/players/"+enc(p.id)+".json","DELETE");audit("remove player",`${p.name} (${p.id}) had ${p.wins}`);toast("Removed");loadPlayers()}catch(e){fail(e)}}
+function backup(){const blob=new Blob([JSON.stringify({exportedAt:new Date().toISOString(),players:PLAYERS},null,2)],{type:"application/json"});
+ const a=h("a",{href:URL.createObjectURL(blob),download:"leaderboard-backup-"+new Date().toISOString().replace(/[:.]/g,"-").slice(0,19)+".json"});document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}
+$("#pbackup").onclick=backup;
+$("#preset").onclick=async()=>{
+ await loadPlayers();const hit=plist().filter(p=>p.wins>0);
+ const v=await ask({title:"Reset the leaderboard",note:`Sets ${hit.length} players' wins back to 0 (names and avatars stay). A backup file downloads first so you can undo it. Type RESET to confirm.`,fields:[{k:"c",label:"Type RESET",type:"text"}],ok:"Reset everything",danger:true,check:v=>v.c==="RESET"?"":"Type RESET exactly"});
+ if(!v)return;if(!hit.length)return toast("Nobody has any wins");
+ backup();const u={};hit.forEach(p=>u[p.id+"/wins"]=0);
+ try{await api("/players.json","PATCH",u);audit("reset leaderboard",hit.length+" players zeroed");toast("Leaderboard reset");loadPlayers()}catch(e){fail(e)}};
+
+/* ---------- BANS ---------- */
+async function loadBans(quiet){BANS=await api("/bans.json")||{};if(!quiet||tab==="bans")renderBans();if(tab==="players")renderPlayers()}
+function renderBans(){
+ const rows=Object.entries(BANS).filter(([k,b])=>b&&typeof b==="object"||b===true).sort((a,b)=>(+(b[1]&&b[1].ts)||0)-(+(a[1]&&a[1].ts)||0));
+ $("#bcount").textContent=rows.length+" banned";
+ $("#btb").replaceChildren(...rows.map(([id,b])=>{b=typeof b==="object"?b:{};const pl=PLAYERS[id];
+  return h("tr",{},h("td",{class:"n"},avatar(pl&&pl.av),h("b",{text:String(b.name||(pl&&pl.name)||"unknown").slice(0,30)})),
+   h("td",{},h("small",{class:"idc",text:id,onclick:()=>copy(id)})),h("td",{text:String(b.reason||"—").slice(0,120)}),h("td",{text:b.ts?ago(b.ts):"—"}),
+   h("td",{},h("button",{class:"btn sm",onclick:()=>unban(id,b.name)},"Unban")))}));
+ if(!rows.length)$("#btb").append(h("tr",{},h("td",{colspan:5,class:"empty-msg",text:"Nobody is banned."})))}
+async function doBan(id,name,reason,wipe){
+ await api("/bans/"+enc(id)+".json","PUT",{name:String(name||"").slice(0,40),reason:String(reason||"").slice(0,120),by:S.email,ts:{".sv":"timestamp"}});
+ if(wipe)await api("/players/"+enc(id)+".json","DELETE");
+ audit("ban",`${name||"?"} (${id})${reason?" – "+reason:""}${wipe?" [removed from leaderboard]":""}`);
+ toast("Banned. They're kicked out within a minute.");await loadBans(true);loadPlayers().catch(()=>{})}
+async function banDialog(id,name){
+ const v=await ask({title:"Ban "+(name||id)+"?",note:"Their Discord account can no longer log in or play. If they're in a game right now they're removed within a minute.",fields:[{k:"reason",label:"Reason (shown to them, optional)",type:"text"},{k:"wipe",label:"Also remove them from the leaderboard",type:"checkbox",value:true}],ok:"Ban account",danger:true});
+ if(v)try{await doBan(id,name,v.reason,v.wipe)}catch(e){fail(e)}}
+async function unban(id,name){
+ if(!await confirmBox("Unban "+(name||id)+"?","They'll be able to log in and play again.","Unban"))return;
+ try{await api("/bans/"+enc(id)+".json","DELETE");audit("unban",`${name||"?"} (${id})`);toast("Unbanned");loadBans(true)}catch(e){fail(e)}}
+$("#bgo").onclick=async()=>{const id=$("#bid").value.trim();if(!validId(id))return toast("Enter a valid Discord ID (digits only)",true);
+ const name=(PLAYERS[id]&&PLAYERS[id].name)||"";
+ if(!await confirmBox("Ban "+(name||id)+"?","This Discord account will be blocked from the game.","Ban account",true))return;
+ try{await doBan(id,name,$("#bre").value.trim(),$("#bwipe").checked);$("#bid").value=$("#bre").value=""}catch(e){fail(e)}};
+$("#brefresh").onclick=()=>loadBans().catch(e=>fail(e));
+
+/* ---------- CARD GRANTS ---------- */
+let LEVELS=[],levelsP=null,PICK=[];
+const ytId=s=>{const m=String(s).match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/);return m?m[1]:null};
+function ensureLevels(){return levelsP||(levelsP=(async()=>{
+ $("#lstat").textContent="Loading the demon list…";
+ for(const u of["https://api.aredl.net/v2/api/aredl/levels","https://api.aredl.net/v2/api/aredl/levels?exclude_legacy=false"]){
+  try{const r=await fetch(u);if(!r.ok)throw 0;let d=await r.json();d=Array.isArray(d)?d:(d.data||d.levels||d.results||[]);
+   const L=d.filter(l=>l&&l.name&&Number.isFinite(+l.position)&&+l.position>0).map(l=>({id:l.id,name:String(l.name),position:+l.position,yt:ytId(JSON.stringify(l))||undefined}));
+   if(L.length>=20){LEVELS=L.sort((a,b)=>a.position-b.position);$("#lstat").textContent=LEVELS.length+" levels loaded. Search to find a card.";renderPicker();return}}catch(e){}}
+ $("#lstat").textContent="Couldn't reach the AREDL API. Reload to retry.";levelsP=null})())}
+const loadLevels=ensureLevels;
+const asTile=l=>tile({n:l.name,p:l.position,y:l.yt});
+function renderPicker(){
+ const q=$("#lq").value.trim().toLowerCase();if(!LEVELS.length){return}
+ let r=q?(/^#?\d+$/.test(q)?LEVELS.filter(l=>String(l.position)===q.replace("#","")||String(l.position).startsWith(q.replace("#",""))):LEVELS.filter(l=>l.name.toLowerCase().includes(q))):LEVELS.slice(0,24);
+ r=r.slice(0,60);
+ $("#lres").replaceChildren(...r.map(l=>{const t=asTile(l);t.onclick=()=>pick(l);return t}));
+ if(!r.length)$("#lres").textContent="No matches."}
+$("#lq").oninput=renderPicker;
+$("#lapex").onclick=async()=>{await ensureLevels();const a=LEVELS.find(l=>l.position===1);a?pick(a):toast("Level #1 not found",true)};
+function pick(l){if(PICK.some(x=>String(x.id)===String(l.id)))return toast("Already picked");if(PICK.length>=5)return toast("Max 5 cards (a full hand)",true);PICK.push(l);renderTray()}
+function renderTray(){
+ $("#tray").replaceChildren(...[0,1,2,3,4].map(i=>{const l=PICK[i];if(!l)return h("div",{class:"ct empty"});const t=asTile(l);t.title="Click to remove";t.onclick=()=>{PICK.splice(i,1);renderTray()};return t}))}
+function giveTo(id){show("grants");$("#gid").value=id;whoIs();window.scrollTo(0,0)}
+function whoIs(){const id=$("#gid").value.trim(),p=PLAYERS[id];$("#gwho").textContent=p?"→ "+String(p.name).slice(0,30):(id?(validId(id)?"Unknown player (they may not have played yet)":"Not a valid Discord ID"):"")}
+$("#gid").oninput=whoIs;
+$("#gsend").onclick=async()=>{
+ const id=$("#gid").value.trim();if(!validId(id))return toast("Pick a player or paste their Discord ID",true);if(!PICK.length)return toast("Pick at least one card",true);
+ const cards=PICK.map(l=>({id:String(l.id),name:l.name,position:l.position,yt:l.yt||null}));
+ try{await api("/grants/"+enc(id)+".json","POST",{cards,note:$("#gnote").value.trim().slice(0,80),by:S.email,ts:{".sv":"timestamp"},used:false});
+  audit("grant cards",`${(PLAYERS[id]&&PLAYERS[id].name)||id} (${id}): ${cards.map(c=>"#"+c.position+" "+c.name).join(", ")}`);
+  toast("Queued! It applies the next time they're dealt a hand.");PICK=[];renderTray();$("#gnote").value="";loadGrants()}catch(e){fail(e)}};
+async function loadGrants(){
+ let d;try{d=await api("/grants.json")||{}}catch(e){return fail(e)}
+ const rows=[];for(const[uid,gs]of Object.entries(d))for(const[gid,g]of Object.entries(gs||{}))if(g&&typeof g==="object")rows.push({uid,gid,g});
+ rows.sort((a,b)=>(+b.g.ts||0)-(+a.g.ts||0));window.GRANTS=rows;
+ $("#gtb").replaceChildren(...rows.map(({uid,gid,g})=>{const p=PLAYERS[uid];
+  return h("tr",{},h("td",{class:"n"},avatar(p&&p.av),h("div",{},h("b",{text:String((p&&p.name)||"unknown").slice(0,30)}),h("br"),h("small",{text:uid}))),
+   h("td",{},h("div",{class:"cl"},listOf(g.cards).map(c=>h("span",{class:"chip",style:"background:"+RAR[tierOf(+c.position||9999)][1]+";color:#111",text:"#"+(+c.position||0)+" "+String(c.name||"").slice(0,24)})))),
+   h("td",{text:String(g.note||"")}),h("td",{text:g.ts?ago(g.ts):"—"}),
+   h("td",{},g.used?h("span",{class:"chip",text:"used"}):h("span",{class:"chip ok",text:"waiting"})),
+   h("td",{},h("button",{class:"btn sm dim",onclick:()=>revoke(uid,gid)},g.used?"Delete":"Revoke")))}));
+ if(!rows.length)$("#gtb").append(h("tr",{},h("td",{colspan:6,class:"empty-msg",text:"No grants queued."})))}
+async function revoke(uid,gid){try{await api("/grants/"+enc(uid)+"/"+enc(gid)+".json","DELETE");toast("Removed");loadGrants()}catch(e){fail(e)}}
+$("#grefresh").onclick=loadGrants;
+$("#gclear").onclick=async()=>{const u={};(window.GRANTS||[]).filter(r=>r.g.used).forEach(r=>u[r.uid+"/"+r.gid]=null);if(!Object.keys(u).length)return toast("Nothing used yet");
+ try{await api("/grants.json","PATCH",u);toast("Cleared");loadGrants()}catch(e){fail(e)}};
+renderTray();
+
+/* ---------- POWER HOURS ---------- */
+const PRESETS=[
+ {n:"Apex Hour",d:"The #1 card drops far more often",e:{apexPct:20}},
+ {n:"Match Hour",d:"Same-rarity matches are much more common",e:{matchPct:60}},
+ {n:"Rare Rush",d:"Epic-or-better cards everywhere",e:{rarePct:40}},
+ {n:"Jackpot Hour",d:"All winnings paid double",e:{payMult:2}},
+ {n:"Double Wins",d:"Every leaderboard win counts twice",e:{winMult:2}},
+ {n:"Mega Hour",d:"Everything at once",e:{apexPct:10,matchPct:40,rarePct:25,payMult:2,winMult:2}}];
+const FX=["apexPct","matchPct","rarePct","payMult","winMult"];
+const fxText=e=>{const o=[];if(e.apexPct>0)o.push(`#1 card ${e.apexPct}%/hand`);if(e.matchPct>0)o.push(`matches +${e.matchPct}%`);if(e.rarePct>0)o.push(`rare cards +${e.rarePct}%`);if(e.payMult>1)o.push(`payouts ×${e.payMult}`);if(e.winMult>1)o.push(`wins ×${e.winMult}`);return o.join(" · ")||"no effects"};
+const sliderLabel=k=>{const s=$("#s_"+k);s.nextElementSibling.textContent=k==="payMult"||k==="winMult"?"×"+s.value:s.value+"%"};
+FX.forEach(k=>{$("#s_"+k).oninput=()=>sliderLabel(k);sliderLabel(k)});
+$("#presets").replaceChildren(...PRESETS.map(p=>h("button",{class:"preset",onclick:()=>{$("#pn").value=p.n;FX.forEach(k=>{$("#s_"+k).value=p.e[k]!=null?p.e[k]:(k==="payMult"||k==="winMult"?1:0);sliderLabel(k)});toast("Loaded “"+p.n+"”. Press Start when ready.")}},h("b",{text:p.n}),h("span",{text:p.d}),h("span",{text:fxText(p.e)}))));
+let POWER=null,pwTimer=0;
+async function loadPower(){try{POWER=await api("/config/power.json");}catch(e){return fail(e)}paintPower()}
+function paintPower(){
+ const box=$("#pact"),on=POWER&&+POWER.endsAt>Date.now();box.className="panel"+(on?" on":"");
+ if(!on){box.replaceChildren(h("h2",{text:"No power hour running"}),h("small",{text:"Start one below. Players see a banner and the effects apply to everyone within about 30 seconds."}));return}
+ const s=Math.max(0,Math.round((+POWER.endsAt-Date.now())/1000));
+ box.replaceChildren(h("div",{class:"bar"},h("h2",{text:"⚡ "+String(POWER.name||"Power Hour").slice(0,30)+" is LIVE"}),h("span",{class:"sp"}),
+   h("span",{class:"big",text:(s/3600|0)?`${s/3600|0}:${String(s/60%60|0).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`:`${s/60|0}:${String(s%60).padStart(2,"0")}`})),
+  h("div",{text:fxText(POWER.effects||{})}),
+  h("div",{class:"bar"},h("button",{class:"btn sm gold",onclick:()=>extendPower(15)},"+15 min"),h("button",{class:"btn sm gold",onclick:()=>extendPower(60)},"+1 hour"),h("button",{class:"btn sm danger",onclick:stopPower},"■ Stop now")))}
+setInterval(()=>{if(tab==="power"&&POWER)paintPower()},1000);setInterval(()=>{if(tab==="power"&&S.tok)loadPower()},15000);
+async function extendPower(min){try{await api("/config/power/endsAt.json","PUT",Math.max(+POWER.endsAt,Date.now())+min*60000);audit("power hour extended",`${POWER.name} +${min}m`);loadPower()}catch(e){fail(e)}}
+async function stopPower(){if(!await confirmBox("Stop the power hour?","The bonus ends for everyone within about 30 seconds.","Stop it",true))return;
+ try{await api("/config/power.json","DELETE");audit("power hour stopped",POWER&&POWER.name);POWER=null;paintPower()}catch(e){fail(e)}}
+$("#pstart").onclick=async()=>{
+ const err=$("#perr");err.textContent="";const effects={};FX.forEach(k=>{const v=+$("#s_"+k).value;if(k==="payMult"||k==="winMult"?v>1:v>0)effects[k]=v});
+ const mins=Math.round(+$("#pm").value),name=$("#pn").value.trim()||"Power Hour";
+ if(!Object.keys(effects).length)return err.textContent="Turn at least one effect above zero.";
+ if(!(mins>=1&&mins<=1440))return err.textContent="Minutes must be 1–1440.";
+ if(POWER&&+POWER.endsAt>Date.now()&&!await confirmBox("Replace the running power hour?",`“${POWER.name}” will be replaced.`,"Replace"))return;
+ const now=Date.now();
+ try{await api("/config/power.json","PUT",{name:name.slice(0,30),startedAt:now,endsAt:now+mins*60000,effects});audit("power hour started",`${name} for ${mins}m: ${fxText(effects)}`);toast("⚡ Power hour started!");loadPower()}catch(e){fail(e)}};
+
+/* ---------- LOG ---------- */
+async function loadLog(){
+ let d;try{d=await api('/adminlog.json?orderBy="$key"&limitToLast=150')||{}}catch(e){return fail(e)}
+ const rows=Object.values(d).sort((a,b)=>(+b.ts||0)-(+a.ts||0));
+ $("#ltb").replaceChildren(...rows.map(r=>h("tr",{},h("td",{text:r.ts?new Date(+r.ts).toLocaleString():"—"}),h("td",{},h("b",{text:String(r.action||"")})),h("td",{text:String(r.detail||"")}))));
+ if(!rows.length)$("#ltb").append(h("tr",{},h("td",{colspan:3,class:"empty-msg",text:"Nothing logged yet."})))}
+$("#lgrefresh").onclick=loadLog;
+</script></body></html>

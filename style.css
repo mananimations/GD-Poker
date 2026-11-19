@@ -85,6 +85,9 @@ h1{margin:0 0 8px;text-align:center;font-size:clamp(20px,4vw,30px);color:var(--g
 .room .rn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rempty{opacity:.7;font-size:13px;padding:6px}
 .btn.sm.go{background:var(--red);color:#fff}
 .err{color:#ff9aa5;font-weight:bold;min-height:0;font-size:13px}.err:empty{display:none}
+.err.ok{color:#8ff0a4}
+#nmform{display:flex;flex-direction:column;gap:12px;align-items:stretch;width:100%;max-width:300px}
+#nmform input{font:inherit;font-weight:900;font-size:18px;padding:10px;border:3px solid var(--ink);border-radius:8px;text-align:center}
 .mk{width:100%;display:flex;flex-direction:column;gap:8px;align-items:stretch;background:rgba(0,0,0,.25);border-radius:14px;padding:10px;font-size:13px}.mk input[type=text],#jpw input{font:inherit;font-weight:900;padding:8px;border:3px solid var(--ink);border-radius:8px;text-align:center}
 .mk[hidden],#jpw[hidden],#wroom[hidden],#w2[hidden],#mkpw[hidden],#wpw[hidden],#wset[hidden]{display:none}
 #jpw{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center;font-size:13px;width:100%}
