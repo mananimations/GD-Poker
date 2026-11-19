@@ -73,7 +73,7 @@ async function ensure(c){
 }
 function mk(host,arr,click){
  for(let i=0;i<5;i++){const e=document.createElement("div");e.className="card";
-  e.innerHTML='<div class="in"><div class="face back">👹</div><div class="face front"></div></div>';
+  e.innerHTML='<div class="in"><div class="face back"><img src="assets/demon.png" alt="" draggable="false"></div><div class="face front"></div></div>';
   if(click)e.onclick=()=>{if(phase!=="hold")return;sfxClick();held[i]=!held[i];paint()};
   host.appendChild(e);arr.push(e)}
 }

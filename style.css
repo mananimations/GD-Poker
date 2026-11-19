@@ -123,3 +123,5 @@ h1{margin:0 0 8px;text-align:center;font-size:clamp(20px,4vw,30px);color:var(--g
 @media(prefers-reduced-motion:reduce){.pop{animation:none;opacity:1}}
 #prow .card:before{content:attr(data-k);position:absolute;top:-9px;left:50%;transform:translateX(-50%);z-index:6;min-width:18px;text-align:center;font-weight:900;font-size:11px;background:var(--ink);color:var(--gold);border:2px solid var(--gold);border-radius:6px;padding:0 4px;display:none;pointer-events:none}
 #prow .card.on:before{display:block}
+
+.back img{width:72%;height:auto;filter:drop-shadow(0 3px 0 rgba(0,0,0,.45));pointer-events:none;user-select:none}

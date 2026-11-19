@@ -19,6 +19,7 @@ Open `index.html` in a browser, or host it for free with GitHub Pages:
 | `style.css` | Styles |
 | `script.js` | Game logic |
 | `assets/dealer.png` | Dealer image |
+| `assets/demon.png` | Demon icon on the card backs |
 | `assets/bgm.mp3` | Background music |
 
 ## Game modes
