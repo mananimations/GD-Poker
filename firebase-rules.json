@@ -34,6 +34,11 @@
       ".write": "auth != null && auth.uid === 'wJHaFhIjkEYk2Hsq0jkIVFUaczo2'"
     },
 
+    "cardfeed": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === 'wJHaFhIjkEYk2Hsq0jkIVFUaczo2'"
+    },
+
     "grants": {
       ".read": "auth != null && auth.uid === 'wJHaFhIjkEYk2Hsq0jkIVFUaczo2'",
       ".write": "auth != null && auth.uid === 'wJHaFhIjkEYk2Hsq0jkIVFUaczo2'",

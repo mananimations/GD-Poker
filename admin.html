@@ -575,6 +575,9 @@ $("#gsend").onclick=async()=>{
  const id=$("#gid").value.trim();if(!validId(id))return toast("Pick a player or paste their Discord ID",true);if(!PICK.length)return toast("Pick at least one card",true);
  const cards=PICK.map(l=>({id:String(l.id),name:l.name,position:l.position,yt:l.yt||null}));
  try{await api("/grants/"+enc(id)+".json","POST",{cards,note:$("#gnote").value.trim().slice(0,80),by:S.email,ts:{".sv":"timestamp"},used:false});
+  const awardCards=cards.filter(c=>+c.position<=19&&+c.position>0);
+  if(awardCards.length){const player=(PLAYERS[id]&&PLAYERS[id].name)||id;
+   await Promise.all(awardCards.map(c=>api("/cardfeed.json","POST",{player:String(player).slice(0,32),uid:id,cardId:c.id,name:c.name,position:+c.position,yt:c.yt||null,ts:{".sv":"timestamp"}}).catch(e=>{console.warn("Could not publish card award to menu feed:",e)})))}
   audit("grant cards",`${(PLAYERS[id]&&PLAYERS[id].name)||id} (${id}): ${cards.map(c=>"#"+c.position+" "+c.name).join(", ")}`);
   toast("Queued! It applies the next time they're dealt a hand.");PICK=[];renderTray();$("#gnote").value="";loadGrants()}catch(e){fail(e)}};
 async function loadGrants(){

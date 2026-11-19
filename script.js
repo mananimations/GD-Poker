@@ -522,6 +522,35 @@ async function lbCall(path,method,body,ms){
  try{const r=await fetch(LB+path,{method,signal:c.signal,body:body?JSON.stringify(body):undefined});if(!r.ok)throw new Error("HTTP "+r.status);return await r.json()}
  finally{clearTimeout(t)}
 }
+// Public showcase of Ethereal/Apex cards awarded by admins.
+let cardFeed=[],cardFeedIndex=0,cardFeedTimer=null,cardFeedRefreshTimer=null;
+async function feedRefresh(){
+ if(!LB)return;
+ try{
+  const raw=await lbCall("/cardfeed.json","GET",null,6000);
+  cardFeed=Object.values(raw||{}).filter(x=>x&&(+x.position<=19)&&(+x.position>0)&&x.name&&x.player)
+   .sort((a,b)=>(+b.ts||0)-(+a.ts||0)).slice(0,40);
+  if(cardFeedIndex>=cardFeed.length)cardFeedIndex=0;
+  feedPaint();
+ }catch(e){/* The feed is an optional menu feature; keep the menu usable if it is unavailable. */}
+}
+function feedPaint(){
+ const empty=$("#feedempty"),item=$("#feeditem");
+ if(!cardFeed.length){empty.hidden=false;item.hidden=true;return}
+ empty.hidden=true;item.hidden=false;
+ const a=cardFeed[cardFeedIndex%cardFeed.length],tier=TIERS[tierOf(+a.position)];
+ $("#feedwho").textContent=String(a.player).slice(0,32)+" got:";
+ $("#feedmeta").textContent="#"+a.position+" · "+tier.n;
+ const box=$("#feedcard");box.replaceChildren();box.style.borderColor=tier.c;
+ const bg=document.createElement("div");bg.className="fbg";bg.style.background=`linear-gradient(135deg,${tier.c},#2b1850)`;
+ const pos=document.createElement("b");pos.className="fpos";pos.textContent="#"+a.position;
+ const nm=document.createElement("b");nm.className="fname";nm.textContent=a.name;
+ const tr=document.createElement("b");tr.className="ftier";tr.textContent=tier.n;
+ box.append(bg,pos);
+ if(a.yt){const im=document.createElement("img");im.className="fimg";im.alt="";im.referrerPolicy="no-referrer";im.src=`https://i.ytimg.com/vi/${encodeURIComponent(a.yt)}/mqdefault.jpg`;im.onerror=()=>im.remove();box.append(im)}
+ box.append(nm,tr);
+}
+function feedStart(){feedRefresh();if(cardFeedTimer)clearInterval(cardFeedTimer);if(cardFeedRefreshTimer)clearInterval(cardFeedRefreshTimer);cardFeedTimer=setInterval(()=>{if(cardFeed.length){cardFeedIndex=(cardFeedIndex+1)%cardFeed.length;feedPaint()}},5000);cardFeedRefreshTimer=setInterval(feedRefresh,60000)}
 function lbRow(rank,p,me){
  const d=document.createElement("div");d.className="lbr"+(me?" me":"");
  const k=document.createElement("span");k.className="k";k.textContent="#"+rank;
@@ -825,7 +854,7 @@ $("#sdel").onclick=async()=>{
 const dcErr=t=>{$("#dcerr").textContent=t||""};
 function dcShow(){ // logged in -> main menu, otherwise the login screen
  const u=dcUser;myPic=dcPic;myName=u&&u.name?u.name:"You";myId=u?u.id:"";
- if(u){$("#dcname").textContent=u.name;$("#dcav").src=u.avatar||"assets/dealer.png";banState="checking";
+ if(u){$("#dcname").textContent=u.name;$("#dcav").src=u.avatar||"assets/dealer.png";feedStart();banState="checking";
   getBan(u.id).then(b=>{if(dcUser!==u)return;if(b)showBanned(b);else{banState="ok";lbStart()}})}
  if(u&&!u.name){$("#nmin").value="";nmErr("");setTimeout(()=>$("#nmin").focus(),50)} // first login: pick a username
  scr(!u?"m-login":u.name?"m-main":"m-name");

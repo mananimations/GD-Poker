@@ -39,11 +39,18 @@
   </div>
   <div id="m-main" class="mscr" hidden>
    <div class="mcard" id="macct">
-    <h3>ACCOUNT</h3>
-    <div id="dcuser"><img id="dcav" alt=""><b id="dcname"></b></div>
-    <div id="stats"><div><small>RANK</small><b id="myrank">—</b></div><div><small>WINS</small><b id="mywins">0</b></div></div>
-    <button class="btn sm go" id="setopen">⚙ ACCOUNT SETTINGS</button>
-    <button class="link" id="dcout">log out</button>
+    <section id="accttop">
+     <h3>ACCOUNT</h3>
+     <div id="dcuser"><img id="dcav" alt=""><b id="dcname"></b></div>
+     <div id="stats"><div><small>RANK</small><b id="myrank">—</b></div><div><small>WINS</small><b id="mywins">0</b></div></div>
+     <button class="btn sm go" id="setopen">⚙ ACCOUNT SETTINGS</button>
+     <button class="link" id="dcout">log out</button>
+    </section>
+    <section id="cardfeed" aria-live="polite">
+     <h3>ETHEREAL / APEX AWARDS</h3>
+     <div id="feedempty">No Ethereal or Apex cards awarded yet.</div>
+     <div id="feeditem" hidden><b id="feedwho"></b><div id="feedcard" class="feed-card"></div><small id="feedmeta"></small></div>
+    </section>
    </div>
    <div class="mcard" id="mplay">
     <h3>GAME MODE</h3>
