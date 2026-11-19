@@ -1,6 +1,8 @@
 // Discord login: create an app at https://discord.com/developers/applications, copy its Client ID here,
 // and add this page's address (e.g. https://you.github.io/picture-poker/) under OAuth2 > Redirects.
 const DISCORD_CLIENT_ID="1572850368642023424";
+// Global leaderboard storage: a Firebase Realtime Database URL (see README), e.g. "https://my-game-default-rtdb.firebaseio.com"
+const LEADERBOARD_DB="";
 const API="https://api.aredl.net/v2/api/aredl/levels";
 const TIERS=[
  {n:"Common",r:"1000+",c:"#9aa0a6",m:1},{n:"Uncommon",r:"750–999",c:"#4ade80",m:1.5},{n:"Rare",r:"500–749",c:"#38bdf8",m:2},
@@ -165,7 +167,7 @@ function cmp(a,b){for(let i=0;i<a.length;i++){if(a[i]!==b[i])return a[i]>b[i]?1:
 // ================= GAME FLOW =================
 const OPPDUMMY={id:"?",name:"???",position:9999};
 const APEXMSG="You got the top #1! This card lets you instantly win the game!";
-let mode="bot",OPP="Dealer",myName="You",oppAnimP=Promise.resolve();
+let mode="bot",OPP="Dealer",myName="You",myId="",oppId="",oppAnimP=Promise.resolve();
 const showOv=(msg,small,onclick)=>new Promise(r=>{const o=$("#ov");$("#ovb p").textContent=msg;$("#ovb small").textContent=small||"click to continue";o.classList.add("on");
  o.onclick=()=>{if(onclick){onclick();return}o.classList.remove("on");o.onclick=null;r()}});
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
@@ -211,7 +213,7 @@ async function showdown(oh){
  const dl=evalHand(oh),me=evalHand(hand);$("#dn").textContent=dl.txt;await sleep(700);
  const pA=hand.filter(c=>c.position===1).length,dA=oh.filter(c=>c.position===1).length;
  const r=(pA||dA)?Math.sign(pA-dA):cmp(me.score,dl.score);let w=0;
- if(r>0){sfxWin();w=Math.max(bet,Math.round(bet*me.mult));
+ if(r>0){sfxWin();w=Math.max(bet,Math.round(bet*me.mult));if(mode==="pvp")recordWin();
   say(pA?(dA?`More #1s than ${OPP}! You got ${w} coins!`:`Top #1! You got ${w} coins!`):`${me.name}! You got ${w} coins!`)}
  else if(r===0){w=bet;say(pA?"You both have the top #1: it's a draw! Bet returned.":"A tie! Your bet is returned.")}
  else{sfxLose();say(dA?`${OPP} has the top #1! ${OPP} wins.`:`${OPP} wins this one. Deal again?`)}
@@ -270,8 +272,8 @@ function onMsg(m){
  if(!m||typeof m!=="object")return;net.last=Date.now();
  switch(m.t){
   case"hello":if(net.started)return;
-   if(net.role==="host")send({t:"hello",name:myName,pic:myPic});
-   beginPvp(clean(m.name),goodPic(m.pic));break;
+   if(net.role==="host")send({t:"hello",name:myName,pic:myPic,did:myId});
+   oppId=String(m.did||"").slice(0,30);beginPvp(clean(m.name),goodPic(m.pic));break;
   case"ready":if(net.role==="host"){guestReady=true;hostMaybeDeal()}break;
   case"deal":if(net.role==="guest"&&Array.isArray(m.hand)){resetSync();startRound(m.hand)}break;
   case"draw":if(net.role==="host"&&Array.isArray(m.rep)&&!guestDrew){
@@ -438,7 +440,7 @@ function joinRoom(r,pw){
  const gen=net.gen,c=net.gp.connect(r.hid,{reliable:true});net.connecting="room";
  net.conn=c;net.role="guest";net.joinTo=setTimeout(()=>joinFail("Couldn't connect to that room."),9000);
  setupConn(c,"guest");
- c.on("open",()=>{net.connecting=null;c.send({t:"hello",name:myName,pic:myPic,pw})});
+ c.on("open",()=>{net.connecting=null;c.send({t:"hello",name:myName,pic:myPic,did:myId,pw})});
  c.on("data",m=>{if(m&&m.t==="deny")joinFail(m.why==="password"?"Wrong password.":"That room is full or busy.")});
 }
 function joinFail(msg){
@@ -456,11 +458,59 @@ function enterGame(msg,pic,chr){
  say(msg);$("#go").disabled=false;
 }
 let dcPic=null,dcUser=null;
+// ---- Global leaderboard (wins against other players; bot games never count)
+const LB=LEADERBOARD_DB.replace(/\/+$/,"");let lbMe=null,lbBusy=false;
+const okAv=u=>typeof u==="string"&&/^https:\/\/cdn\.discordapp\.com\//.test(u);
+async function lbCall(path,method,body){
+ const c=new AbortController(),t=setTimeout(()=>c.abort(),8000);
+ try{const r=await fetch(LB+path,{method,signal:c.signal,body:body?JSON.stringify(body):undefined});if(!r.ok)throw new Error("HTTP "+r.status);return await r.json()}
+ finally{clearTimeout(t)}
+}
+function lbRow(rank,p,me){
+ const d=document.createElement("div");d.className="lbr"+(me?" me":"");
+ const k=document.createElement("span");k.className="k";k.textContent="#"+rank;
+ const im=document.createElement("img");im.alt="";im.src=okAv(p.av)?p.av:"assets/dealer.png";
+ const n=document.createElement("span");n.className="n";n.textContent=p.name;
+ const w=document.createElement("span");w.className="w";w.textContent=p.wins+(p.wins===1?" win":" wins");
+ d.append(k,im,n,w);return d;
+}
+async function lbRefresh(){
+ const box=$("#lblist");
+ if(!LB){box.innerHTML='<div class="rempty">Leaderboard not set up yet. Add your database URL at the top of script.js.</div>';return}
+ if(lbBusy||!dcUser)return;lbBusy=true;
+ try{
+  const raw=await lbCall("/players.json","GET")||{};
+  const all=Object.entries(raw).filter(([id,p])=>p&&typeof p.name==="string"&&Number.isFinite(+p.wins)&&+p.wins>0)
+   .map(([id,p])=>({id,name:p.name.slice(0,14),av:p.av,wins:+p.wins})).sort((a,b)=>b.wins-a.wins||a.name.localeCompare(b.name));
+  const rank=p=>1+all.filter(x=>x.wins>p.wins).length;
+  box.textContent="";
+  if(!all.length)box.innerHTML='<div class="rempty">No wins yet. Beat a player to get on the board!</div>';
+  let shown=false;all.slice(0,10).forEach(p=>{const me=p.id===myId;shown=shown||me;box.appendChild(lbRow(rank(p),p,me))});
+  const mine=all.find(p=>p.id===myId);
+  if(mine&&!shown){const g=document.createElement("div");g.className="lbr gap";g.textContent="⋯";box.append(g,lbRow(rank(mine),mine,true))}
+  lbMe=mine||{wins:0};
+  $("#mywins").textContent=lbMe.wins;
+  $("#myrank").textContent=mine?`#${rank(mine)} of ${all.length}`:"Unranked";
+ }catch(e){box.innerHTML='<div class="rempty">Couldn\'t load the leaderboard ('+(e.name==="AbortError"?"timed out":e.message)+').</div>'}
+ lbBusy=false;
+}
+let lbStarted=false;
+async function lbStart(){ // once per page load: update my name/avatar on the board, then load it
+ if(lbStarted||!LB||!dcUser)return;lbStarted=true;
+ try{const b={name:dcUser.name};if(okAv(dcUser.avatar))b.av=dcUser.avatar;await lbCall("/players/"+encodeURIComponent(myId)+".json","PATCH",b)}catch(e){}
+ lbRefresh();
+}
+async function recordWin(){
+ if(!LB||!dcUser||!oppId||oppId===myId)return; // no backend, or playing yourself in two tabs
+ try{const b={name:dcUser.name,wins:{".sv":{increment:1}}};if(okAv(dcUser.avatar))b.av=dcUser.avatar;
+  await lbCall("/players/"+encodeURIComponent(myId)+".json","PATCH",b);lbRefresh()}catch(e){}
+}
+$("#lbref").onclick=()=>{sfxClick();if(!LB)return lbRefresh();lbStarted=true;lbRefresh()};
 // ---- Discord login (OAuth2 implicit flow, "identify" scope only; the token is used once and never stored)
 const dcErr=t=>{$("#dcerr").textContent=t||""};
 function dcShow(){ // logged in -> main menu, otherwise the login screen
- const u=dcUser;myPic=dcPic;
- if(u){$("#dcname").textContent=u.name;$("#dcav").src=u.avatar;if(!$("#mname").value)$("#mname").value=clean(store.get("dpp_name")||u.name)}
+ const u=dcUser;myPic=dcPic;myName=u?u.name:"You";myId=u?u.id:"";
+ if(u){$("#dcname").textContent=u.name;$("#dcav").src=u.avatar||"assets/dealer.png";lbStart()}
  scr(u?"m-main":"m-login");
 }
 function dcApply(u){dcUser=u;dcPic=goodPic(u.pic);dcShow()}
@@ -487,7 +537,7 @@ $("#dcin").onclick=()=>{sfxClick();
  location.href="https://discord.com/oauth2/authorize?"+new URLSearchParams({client_id:DISCORD_CLIENT_ID,response_type:"token",scope:"identify",state:st,redirect_uri:location.origin+location.pathname})
  dcErr("Opening Discord… If nothing happens, make sure this exact address is added under OAuth2 > Redirects in your Discord app: "+location.origin+location.pathname);
  setTimeout(()=>{if(document.visibilityState==="visible"&&!dcUser)dcErr("Discord didn't open. Open the game directly in its own browser tab (not inside a preview), and add this exact address under OAuth2 > Redirects in your Discord app: "+location.origin+location.pathname)},3500)};
-$("#dcout").onclick=()=>{sfxClick();dcUser=dcPic=myPic=null;store.del("dpp_dc");store.del("dpp_name");$("#mname").value="";dcErr("");scr("m-login")};
+$("#dcout").onclick=()=>{sfxClick();dcUser=dcPic=myPic=null;myId=myName="";lbMe=null;store.del("dpp_dc");dcErr("");scr("m-login")};
 { // coming back from Discord?
  const hp=new URLSearchParams(location.hash.slice(1)),tok=hp.get("access_token"),err=hp.get("error_description")||hp.get("error");
  if(tok||err){history.replaceState(null,"",location.pathname+location.search);
@@ -505,13 +555,10 @@ document.querySelectorAll(".dbtn").forEach(b=>b.onclick=async()=>{sfxClick();awa
  const c=CHARS[Math.random()*CHARS.length|0],D=DIFFS[diff];OPP=c.n;enterGame(`${OPP} is your dealer (${D.label}). Press DEAL to start.`,c.i,!!c.i);
  $("#dlbl").textContent=`${OPP}'s hand · ${D.label}`;
  if(live){$("#st").className="";$("#st").textContent=`Bot difficulty: ${D.label}. ${D.say}`}});
-$("#mPvp").onclick=()=>{sfxClick();startMusic();scr("m-name");$("#mname").focus()};
-$("#mBack1").onclick=()=>{sfxClick();scr("m-main")};
+$("#mPvp").onclick=()=>{startMusic();goLobby()};
 const goLobby=async()=>{
- if(!$("#mname").value.trim()){$("#mname").focus();$("#mname").placeholder="Please type a name!";return}
- myName=clean($("#mname").value);if(dcUser)store.set("dpp_name",myName);sfxClick();lobErr("");scr("m-wait");$("#wroom").hidden=true;$("#mwait").textContent="Loading the demon list…";await ready;$("#mwait").textContent="Connecting to the lobby…";if($("#m-wait").hidden)return;startLobby()};
-$("#mFind").onclick=goLobby;$("#mname").onkeydown=e=>{if(e.key==="Enter")goLobby()};
-$("#mBack2").onclick=()=>{sfxClick();netCleanup();scr("m-main")};
+ if(!dcUser)return;sfxClick();lobErr("");scr("m-wait");$("#wroom").hidden=true;$("#mwait").textContent="Loading the demon list…";await ready;$("#mwait").textContent="Connecting to the lobby…";if($("#m-wait").hidden)return;startLobby()};
+$("#mBack2").onclick=()=>{sfxClick();netCleanup();scr("m-main");lbRefresh()};
 $("#mCancel").onclick=()=>{sfxClick();
  if(net.room){unregRoom();net.room=null;showLobby()}else{netCleanup();scr("m-main")}};
 $("#mklock").onchange=e=>{$("#mkpw").hidden=!e.target.checked;if(e.target.checked)$("#mkpw").focus()};

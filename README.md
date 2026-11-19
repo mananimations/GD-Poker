@@ -35,7 +35,7 @@ Open `index.html` in a browser, or host it for free with GitHub Pages:
 
 ## Discord login (required)
 
-Players must log in with Discord before they can play. After logging in they reach the main menu (play vs bot or vs player). Their Discord avatar is their profile picture, and their Discord name is prefilled when entering the lobby (they can change it there).
+Players must log in with Discord before they can play. There is no separate name or picture: the Discord display name and avatar are used everywhere. After logging in they reach the game mode screen, which has their account (rank and wins), the global leaderboard, and the Play vs Bot / Play vs Player buttons.
 
 Setup (one time):
 1. Go to <https://discord.com/developers/applications> and create an application.
@@ -43,6 +43,34 @@ Setup (one time):
 3. Copy the **Client ID** and paste it into `DISCORD_CLIENT_ID` at the top of `script.js`.
 
 It uses Discord's browser-only OAuth2 flow with the `identify` scope. The access token is used once to read the username and avatar, and is never stored. Only the name and a 160px avatar are kept in the browser, so players stay logged in until they press log out. It won't work when `index.html` is opened as a local file.
+
+## Global leaderboard
+
+The leaderboard counts **wins against other players only** (bot games and draws never count; playing yourself in two tabs doesn't count either). Each win is recorded by the winner's browser. It is stored in a free Firebase Realtime Database:
+
+1. Create a project at <https://console.firebase.google.com>, then **Build → Realtime Database → Create database**.
+2. Open the **Rules** tab and paste:
+
+```json
+{
+  "rules": {
+    ".read": true,
+    "players": {
+      "$id": {
+        ".write": "$id.matches(/^[0-9]{5,25}$/)",
+        ".validate": "newData.hasChildren(['name'])",
+        "name": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "av": { ".validate": "newData.isString() && newData.val().matches(/^https:\\/\\/cdn\\.discordapp\\.com\\//)" },
+        "wins": { ".validate": "newData.isNumber() && newData.val() >= (data.exists() ? data.val() : 0) && newData.val() <= (data.exists() ? data.val() : 0) + 1" },
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}
+```
+3. Copy the database URL (like `https://your-project-default-rtdb.firebaseio.com`) into `LEADERBOARD_DB` at the top of `script.js`.
+
+Until it is set, the leaderboard panel says it isn't set up. The rules stop a player from jumping their wins by more than 1 per write, but because the game has no server of its own, a determined cheater could still send repeated requests. Treat the board as friendly competition.
 
 ## Notes
 

@@ -13,7 +13,19 @@
    <div id="dcerr" class="err"></div>
   </div>
   <div id="m-main" class="mscr" hidden>
-   <div id="dcuser"><img id="dcav" alt=""><span>Logged in as <b id="dcname"></b></span> <button class="link" id="dcout">log out</button></div>
+   <div id="mgrid">
+    <div class="mcard" id="macct">
+     <h3>ACCOUNT</h3>
+     <div id="dcuser"><img id="dcav" alt=""><b id="dcname"></b></div>
+     <div id="stats"><div><small>RANK</small><b id="myrank">—</b></div><div><small>WINS</small><b id="mywins">0</b></div></div>
+     <button class="link" id="dcout">log out</button>
+    </div>
+    <div class="mcard" id="mlb">
+     <h3>GLOBAL LEADERBOARD <button class="link" id="lbref" title="Refresh">↻</button></h3>
+     <div id="lblist"><div class="rempty">Loading…</div></div>
+     <small id="lbnote">Wins against other players only. Bot games don't count.</small>
+    </div>
+   </div>
    <p>Choose how you want to play</p>
    <button class="btn big" id="mBot" disabled>🤖 PLAY VS BOT</button>
    <button class="btn big alt" id="mPvp" disabled>👥 PLAY VS PLAYER</button>
@@ -30,12 +42,6 @@
     <button class="btn dbtn" data-d="mogger" style="--dc:#ffd23f"><b>Mogger</b><span>The smartest player ever. Never makes mistakes.</span></button>
    </div>
    <button class="link" id="mBack3">← back</button>
-  </div>
-  <div id="m-name" class="mscr" hidden>
-   <p>Type your name</p>
-   <input id="mname" type="text" maxlength="14" placeholder="Your name" autocomplete="off">
-   <button class="btn big" id="mFind">ENTER LOBBY</button>
-   <button class="link" id="mBack1">← back</button>
   </div>
   <div id="m-lobby" class="mscr" hidden>
    <p>Lobby: pick a room</p>
