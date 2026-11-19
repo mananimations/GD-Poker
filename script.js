@@ -40,7 +40,7 @@ function startMusic(){wantPlay=true;if(!musicOn)return;const p=bgm.play();
  sv.oninput=()=>{applySfx();store.set("dpp_sfx",sv.value)};sv.onchange=()=>sfxClick();
  mv.oninput=()=>{applyMus();store.set("dpp_mus",mv.value);if(musicOn)startMusic()};
  applySfx();applyMus();}
-let levels=[],deck=[],hand=[],dhand=[],held=[],phase="idle",coins=100,bet=5,live=false;
+let ready=Promise.resolve(),levels=[],deck=[],hand=[],dhand=[],held=[],phase="idle",coins=100,bet=5,live=false;
 const pEls=[],dEls=[];
 $("#pay").innerHTML=Object.values(HANDS).map(h=>`<div><span>${h[0]}</span><b>×${h[1]}</b></div>`).join("");
 $("#barrows").innerHTML=[7,6,5,4,3,2,1,0].map(i=>{const t=TIERS[i];return `<div class="rb${i===7?" ap":""}" style="--c:${t.c}"><b>${t.n}</b><span>${t.r}</span>${i===7?"<em>wins the game!</em>":""}</div>`}).join("");
@@ -49,18 +49,19 @@ const ENDPOINTS=["https://api.aredl.net/v2/api/aredl/levels","https://api.aredl.
 let errs=[];
 async function load(){
  for(const u of ENDPOINTS){
-  try{const r=await fetch(u);if(!r.ok)throw new Error("HTTP "+r.status);let d=await r.json();
+  try{const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),10000);
+   let r;try{r=await fetch(u,{signal:ac.signal});if(!r.ok)throw new Error("HTTP "+r.status);var d=await r.json()}finally{clearTimeout(tm)}
    d=Array.isArray(d)?d:(d.data||d.levels||d.results||[]);
    const L=d.filter(l=>l&&l.name&&Number.isFinite(+l.position)&&+l.position>0).map(l=>({id:l.id,name:l.name,position:+l.position,...grab(l)}));
    if(L.length<20)throw new Error("only "+L.length+" levels parsed");
    levels=L;live=true;API_USED=u;break}
-  catch(e){errs.push(e.message||String(e))}
+  catch(e){errs.push(e.name==="AbortError"?"timed out":(e.message||String(e)));if(e.name==="AbortError")break}
  }
  if(!live)levels=FB.map((n,i)=>({id:"f"+i,name:n,position:FBP[i]}));
  const st=$("#st");
  if(live){st.textContent=`Live AREDL data: ${levels.length} levels from aredl.net's API.`}
  else{st.className="bad";st.textContent="⚠ COULD NOT REACH THE AREDL API ("+errs[0]+"). Showing an OFFLINE DEMO with placeholder rankings and no thumbnails.";}
- $("#mBot").disabled=$("#mPvp").disabled=false;$("#mload").textContent=live?"Ready!":"Offline demo mode (couldn't reach the AREDL API)";
+ $("#mload").textContent=live?"Ready!":"Offline demo mode (couldn't reach the AREDL API)";
 }
 let API_USED=ENDPOINTS[0];
 function grab(o){const t=JSON.stringify(o);const yt=ytId(t);const m=t.match(/https?:[^"\s]+?\.(?:jpe?g|png|webp)/i);return{yt:yt||undefined,img:m?m[0].replace(/\\\//g,"/"):undefined}}
@@ -390,12 +391,12 @@ $("#pfile").onchange=e=>{
  im.onerror=()=>URL.revokeObjectURL(url);im.src=url;
 };
 $("#pfclear").onclick=()=>{sfxClick();setPic(null);store.del("dpp_pic")};
-$("#mBot").onclick=()=>{sfxClick();startMusic();mode="bot";OPP="Dealer";enterGame("Welcome! Press DEAL to start.")};
+$("#mBot").onclick=async()=>{sfxClick();startMusic();await ready;mode="bot";OPP="Dealer";enterGame("Welcome! Press DEAL to start.")};
 $("#mPvp").onclick=()=>{sfxClick();startMusic();scr("m-name");$("#mname").focus()};
 $("#mBack1").onclick=()=>{sfxClick();scr("m-main")};
-const goLobby=()=>{
+const goLobby=async()=>{
  if(!$("#mname").value.trim()){$("#mname").focus();$("#mname").placeholder="Please type a name!";return}
- myName=clean($("#mname").value);sfxClick();lobErr("");scr("m-wait");$("#wroom").hidden=true;$("#mwait").textContent="Connecting to the lobby…";startLobby()};
+ myName=clean($("#mname").value);sfxClick();lobErr("");scr("m-wait");$("#wroom").hidden=true;$("#mwait").textContent="Loading the demon list…";await ready;$("#mwait").textContent="Connecting to the lobby…";if($("#m-wait").hidden)return;startLobby()};
 $("#mFind").onclick=goLobby;$("#mname").onkeydown=e=>{if(e.key==="Enter")goLobby()};
 $("#mBack2").onclick=()=>{sfxClick();netCleanup();scr("m-main")};
 $("#mCancel").onclick=()=>{sfxClick();
@@ -428,4 +429,6 @@ $("#go").onclick=async()=>{
  if(phase!=="hold"){mode==="bot"?await botDeal():pvpReady()}
  else{mode==="bot"?await botDraw():await pvpDraw()}
 };
-mk($("#drow"),dEls,false);mk($("#prow"),pEls,true);load();
+mk($("#drow"),dEls,false);mk($("#prow"),pEls,true);
+$("#mBot").disabled=$("#mPvp").disabled=false;$("#mload").textContent="Loading the demon list…";
+ready=load().catch(e=>{levels=FB.map((n,i)=>({id:"f"+i,name:n,position:FBP[i]}));$("#mload").textContent="Offline demo mode"});
