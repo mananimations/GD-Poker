@@ -79,13 +79,14 @@ Open `https://<your-site>/admin.html`. Nothing links to it, it asks for a sign-i
 **What it does**
 - **Live games**: every game in progress (PvP and vs-bot), both hands, who is holding/discarding, bet, result and the PvP chat, updating every 2 seconds. Give cards to or ban either player from there.
 - **Card grants**: queue up to 5 specific cards for a player. Their next dealt round starts with them (taken out of the deck, so no duplicates). One grant is used per round, oldest first. Works in bot and PvP games.
-- **Players**: set any player's wins, zero them, remove them from the leaderboard, or reset the whole leaderboard (a JSON backup downloads first).
+- **Players**: set any player's wins, zero them, remove them from the leaderboard, delete a game account (removes its profile and grants and blocks that Discord ID), or reset the whole leaderboard (a JSON backup downloads first). Deleting a game account cannot delete the person's Discord account.
 - **Bans**: ban a Discord account by ID or from any list. Banned accounts see a "banned" screen after logging in, can't start games, can't join rooms, are removed from a game within a minute, and the database rules reject their leaderboard writes.
+- **Site controls**: enable/disable global maintenance mode for all players, and publish a forced website asset refresh for online players.
 - **Power hours**: a timed bonus with a banner for every player: #1-card chance, same-rarity match chance, Epic+ card boost, payout multiplier and leaderboard-win multiplier. Players pick it up within 30 seconds. Presets included; extend or stop any time.
 - **Log**: everything you do in the panel is recorded.
 
 **Good to know**
-- The game is static and peer-to-peer, so the game itself (not a server) enforces bans, grants and power hours. The database rules stop banned accounts and strangers from touching admin data, but someone running a modified copy of `script.js` could still bypass the in-game parts. Fine for a friendly game; a real server would be needed to prevent it.
+- The game is static and peer-to-peer, so the game itself (not a server) enforces bans, grants, power hours, maintenance mode and forced refresh signals. These controls stop normal clients but are not tamper-proof against modified copies of the game. The database rules stop banned accounts and strangers from touching admin data, but someone running a modified copy of `script.js` could still bypass the in-game parts. Fine for a friendly game; a real server would be needed to prevent it.
 - Games publish their table to the database so you can watch them. The login screen tells players moderators may watch.
 - Discord IDs aren't verified by the backend (they weren't before either), so treat bans as "stops normal players".
 
@@ -93,4 +94,4 @@ Open `https://<your-site>/admin.html`. Nothing links to it, it asks for a sign-i
 
 - Multiplayer is peer-to-peer using [PeerJS](https://peerjs.com) (loaded from unpkg) and its free public signaling server, so no backend of your own is needed. If a network blocks WebRTC, matches may not connect.
 - The room list is kept by whichever player's browser claimed the lobby first. If that player leaves, another player takes over automatically. Room passwords are checked by the room's host and are never sent to the lobby.
-- Level data is fetched live from the [AREDL API](https://api.aredl.net), and card thumbnails come from YouTube. The game needs an internet connection.
+- Level data is fetched live from the [AREDL API](https://api.aredl.net), and card thumbnails come from YouTube. The game needs an internet connection. Maintenance mode and forced refresh signals are polled from Firebase; players who are offline will see the changes when they reconnect. A website cannot remotely erase a browser’s entire cache; the refresh button makes clients reload versioned CSS/JavaScript assets instead.

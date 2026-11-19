@@ -558,6 +558,20 @@ $("#lbref").onclick=()=>{sfxClick();if(!LB)return lbRefresh();lbStarted=true;lbR
 const fbp=(...a)=>"/"+a.map(x=>encodeURIComponent(x)).join("/")+".json";
 const rnd=a=>a[Math.random()*a.length|0],roll=p=>Math.random()*100<p,clamp=(v,a,b)=>Math.min(b,Math.max(a,+v||0));
 
+// ---- Global maintenance + forced asset refresh (admin controls in admin.html)
+let maintenanceOn=false,assetVersionSeen=store.get("gdp_asset_version")||"1";
+function paintMaintenance(on){maintenanceOn=!!on;const el=$("#maintenanceScreen");if(el)el.hidden=!maintenanceOn;document.body.style.overflow=maintenanceOn?"hidden":"";}
+async function checkGlobalControls(){if(!LB)return;try{
+ const [m,v]=await Promise.all([lbCall("/config/maintenance.json","GET",null,5000),lbCall("/config/cacheVersion.json","GET",null,5000)]);
+ paintMaintenance(!!(m&&m.enabled));
+ if(v!=null&&String(v)!==String(assetVersionSeen)){
+  assetVersionSeen=String(v);store.set("gdp_asset_version",assetVersionSeen);
+  // The HTML bootstrap adds this version to both static asset URLs on the next load.
+  location.reload();
+ }
+ }catch(e){/* transient network errors must not lock players out */}}
+checkGlobalControls();setInterval(checkGlobalControls,10000);
+
 // ---- Bans: checked at login, every minute while playing, and by a room's host before letting someone in
 let banState="checking";
 async function getBan(id){
@@ -566,7 +580,7 @@ async function getBan(id){
 }
 function showBanned(b){banState="banned";$("#banwhy").textContent=b&&b.reason?"Reason: "+String(b.reason).slice(0,200):"";scr("m-banned")}
 $("#banout").onclick=()=>$("#dcout").click();
-setInterval(async()=>{if(!dcUser||banState==="banned")return;if(await getBan(myId)){sayBye();location.reload()}},60000);
+setInterval(async()=>{if(!dcUser||banState==="banned"||maintenanceOn)return;if(await getBan(myId)){sayBye();location.reload()}},60000);
 
 // ---- Power hours: a timed bonus for everybody, shown as a banner
 let power=null;
@@ -779,7 +793,7 @@ $("#dcout").onclick=()=>{sfxClick();dcUser=dcPic=myPic=null;banState="checking";
 }
 // the bot's dealer is a random character each time you start a bot game
 const CHARS=[{n:"Shopkeeper",i:null},{n:"The Wizard Grandmaster",i:"assets/chars/wizard.png"},{n:"The Biger F",i:"assets/chars/biger-f.png"},{n:"Npesta",i:"assets/chars/npesta.png"}];
-$("#mBot").onclick=()=>{if(banState==="banned")return;sfxClick();startMusic();scr("m-diff")};
+$("#mBot").onclick=()=>{if(banState==="banned"||maintenanceOn)return;sfxClick();startMusic();scr("m-diff")};
 $("#mBack3").onclick=()=>{sfxClick();scr("m-main")};
 document.querySelectorAll(".dbtn").forEach(b=>b.onclick=async()=>{sfxClick();await ready;mode="bot";diff=b.dataset.d;
  const c=CHARS[Math.random()*CHARS.length|0],D=DIFFS[diff];OPP=c.n;enterGame(`${OPP} is your dealer (${D.label}). Press DEAL to start.`,c.i,!!c.i);
@@ -787,7 +801,7 @@ document.querySelectorAll(".dbtn").forEach(b=>b.onclick=async()=>{sfxClick();awa
  if(live){$("#st").className="";$("#st").textContent=`Bot difficulty: ${D.label}. ${D.say}`}});
 $("#mPvp").onclick=()=>{startMusic();goLobby()};
 const goLobby=async()=>{
- if(!dcUser||banState==="banned")return;sfxClick();lobErr("");scr("m-wait");$("#wroom").hidden=true;$("#mwait").textContent="Loading the demon list…";await ready;$("#mwait").textContent="Connecting to the lobby…";if($("#m-wait").hidden)return;startLobby()};
+ if(!dcUser||banState==="banned"||maintenanceOn)return;sfxClick();lobErr("");scr("m-wait");$("#wroom").hidden=true;$("#mwait").textContent="Loading the demon list…";await ready;$("#mwait").textContent="Connecting to the lobby…";if($("#m-wait").hidden)return;startLobby()};
 $("#mBack2").onclick=()=>{sfxClick();netCleanup();scr("m-main");lbRefresh()};
 $("#mCancel").onclick=()=>{sfxClick();
  if(net.room){unregRoom();net.room=null;showLobby()}else{netCleanup();scr("m-main")}};
@@ -815,7 +829,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")cf.classList.remove(
 cf.onclick=e=>{if(e.target===cf)cf.classList.remove("on")};
 $("#go").onclick=async()=>{
  sfxClick();startMusic();
- if(phase==="busy"||banState==="banned")return;
+ if(phase==="busy"||banState==="banned"||maintenanceOn)return;
  if(phase!=="hold"){mode==="bot"?await botDeal():pvpReady()}
  else{mode==="bot"?await botDraw():await pvpDraw()}
 };
@@ -823,7 +837,7 @@ mk($("#drow"),dEls,false);mk($("#prow"),pEls,true);pEls.forEach((e,i)=>e.dataset
 // Keyboard: 1-5 toggle discards, Space deals/draws (Space also dismisses the pop-up message)
 document.addEventListener("keydown",e=>{
  const t=e.target,typing=t&&(t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.isContentEditable);
- if(typing||e.ctrlKey||e.metaKey||e.altKey||e.repeat)return;
+ if(typing||e.ctrlKey||e.metaKey||e.altKey||e.repeat||maintenanceOn)return;
  if(!$("#menu").classList.contains("gone")||cf.classList.contains("on"))return;
  if(e.key===" "||e.code==="Space"){e.preventDefault();if(t&&t.blur&&t.tagName==="BUTTON")t.blur();
   if($("#ov").classList.contains("on"))$("#ov").click();else $("#go").click()}
