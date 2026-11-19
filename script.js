@@ -80,7 +80,21 @@ async function ensure(c){
 function mk(host,arr,click){
  for(let i=0;i<5;i++){const e=document.createElement("div");e.className="card";
   e.innerHTML='<div class="in"><div class="face back"><img src="assets/demon.png" alt="" draggable="false"></div><div class="face front"></div></div>';
-  if(click)e.onclick=()=>{if(phase!=="hold")return;sfxClick();held[i]=!held[i];paint();specHolds()};
+  if(click){
+   // Only accept a deliberate pointer press that began on this card AFTER
+   // the dealing animation has finished. This prevents a click/tap that
+   // started on DEAL (or during the deal) from carrying onto the left card.
+   let pointerArmed=false;
+   e.addEventListener("pointerdown",ev=>{pointerArmed=phase==="hold"&&ev.isPrimary;});
+   e.addEventListener("pointercancel",()=>{pointerArmed=false;});
+   e.onclick=ev=>{
+    const keyboardActivation=ev&&ev.detail===0;
+    if(phase!=="hold")return;
+    if(ev&&!keyboardActivation&&!pointerArmed)return;
+    pointerArmed=false;
+    sfxClick();held[i]=!held[i];paint();specHolds();
+   };
+  }
   host.appendChild(e);arr.push(e)}
 }
 function fill(e,c){
