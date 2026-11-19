@@ -121,18 +121,25 @@ function fill(e,c){
   im.onerror=()=>{if(++k<srcs.length)im.src=srcs[k];else im.remove()};
   im.src=srcs[0];box.appendChild(im)}else box.classList.add("ok")
 }
-// ---- Global Card of the Day: deterministic daily selection shared by every player.
+// ---- Global Card of the Day: deterministic daily selection, with an optional admin override.
 const easternDay=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
-let shownDailyDay="";
+let shownDailyDay="",shownDailySignature="";
 function dailyCardFor(day){
  const pool=(levels.length?levels:FB.map((name,i)=>({id:"f"+i,name,position:FBP[i]}))).slice().sort((a,b)=>a.position-b.position||String(a.id).localeCompare(String(b.id)));
- // Date-seeded hash makes the random-looking choice identical for all players worldwide.
  let hash=2166136261;for(const ch of day){hash^=ch.charCodeAt(0);hash=Math.imul(hash,16777619)}
  return pool[(hash>>>0)%pool.length];
 }
 async function renderDailyCard(){
- const day=easternDay();if(day===shownDailyDay)return;shownDailyDay=day;
- const c=dailyCardFor(day),el=$("#dailycard");if(!el||!c)return;
+ const day=easternDay(),el=$("#dailycard");if(!el)return;
+ let override=null;
+ try{
+  const r=await fetch(LEADERBOARD_DB+"/config/cardOfDay.json");
+  if(r.ok){const saved=await r.json();if(saved&&saved.day===day&&saved.card)override=saved.card}
+ }catch(e){}
+ const c=override||dailyCardFor(day);if(!c)return;
+ const signature=day+"|"+String(c.id)+"|"+String(c.position)+"|"+String(c.name);
+ if(signature===shownDailySignature)return;
+ shownDailyDay=day;shownDailySignature=signature;
  $("#dailyname").textContent=c.name;$("#dailydate").textContent="CARD OF THE DAY · "+day+" · Resets at midnight ET";
  await ensure(c);fill(el,c);el.classList.add("up");
 }

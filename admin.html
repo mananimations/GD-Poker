@@ -132,6 +132,7 @@ tr.banned td{background:rgba(255,77,94,.12)}
    <button data-t="live" class="on">👁 Live games</button>
    <button data-t="players">🏆 Players</button>
    <button data-t="grants">🎁 Card grants</button>
+   <button data-t="dailycard">⭐ Card of the Day</button>
    <button data-t="power">⚡ Power hours</button>
    <button data-t="bans">🚫 Bans</button>
    <button data-t="site">🛠️ Site control</button>
@@ -192,6 +193,18 @@ tr.banned td{background:rgba(255,77,94,.12)}
    <div class="panel" style="margin-top:14px">
     <div class="bar" style="margin-bottom:8px"><h2>Queued grants</h2><span class="sp"></span><button class="btn sm dim" id="grefresh">↻ Refresh</button><button class="btn sm dim" id="gclear">Clear used</button></div>
     <div class="tw"><table><thead><tr><th>PLAYER</th><th>CARDS</th><th>NOTE</th><th>QUEUED</th><th>STATUS</th><th></th></tr></thead><tbody id="gtb"></tbody></table></div>
+   </div>
+  </section>
+
+  <!-- CARD OF THE DAY -->
+  <section class="tab" id="t-dailycard" hidden>
+   <div class="panel">
+    <div class="bar"><h2>⭐ Global Card of the Day</h2><span class="sp"></span><span id="dailyAdminStatus" class="chip">Loading…</span></div>
+    <p class="mut" style="margin:8px 0 12px">Choose the card every player sees today. Your selection is shared globally and expires automatically at 12:00 AM Eastern Time; the normal daily random selection then takes over.</p>
+    <div class="bar"><input type="text" id="dailyAdminSearch" placeholder="Search card name or position…" style="flex:1;min-width:220px"><button class="btn sm dim" id="dailyAdminRefresh">↻ Refresh list</button></div>
+    <div id="dailyAdminResults" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-top:10px;max-height:420px;overflow:auto"></div>
+    <div class="bar" style="margin-top:12px"><span id="dailyAdminChosen" class="mut">No card selected</span><span class="sp"></span><button class="btn gold" id="dailyAdminSet" disabled>⭐ Set as Today's Card</button><button class="btn danger" id="dailyAdminReset">Reset to Random</button></div>
+    <small>Changes are saved to Firebase and picked up by players automatically. The card list comes from the AREDL API.</small>
    </div>
   </section>
 
@@ -377,7 +390,7 @@ $("#out").onclick=()=>{sess.del("adm_rt");location.reload()};
 let tab="live";
 function show(t){tab=t;document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
  document.querySelectorAll(".tab").forEach(s=>s.hidden=s.id!=="t-"+t);
- if(t==="live")pollLive();if(t==="players")loadPlayers().catch(e=>fail(e));if(t==="grants"){loadGrants();ensureLevels()}if(t==="power")loadPower();if(t==="bans")loadBans();if(t==="site")loadSiteControl();if(t==="log")loadLog()}
+ if(t==="live")pollLive();if(t==="players")loadPlayers().catch(e=>fail(e));if(t==="grants"){loadGrants();ensureLevels()}if(t==="dailycard")loadDailyAdmin();if(t==="power")loadPower();if(t==="bans")loadBans();if(t==="site")loadSiteControl();if(t==="log")loadLog()}
 $("#nav").onclick=e=>{const b=e.target.closest("button");if(b)show(b.dataset.t)};
 const setConn=ok=>{const c=$("#conn");c.className=ok?"ok":"bad";c.textContent=ok?"● connected":"● connection problem"};
 
@@ -629,6 +642,73 @@ $("#pstart").onclick=async()=>{
  if(POWER&&+POWER.endsAt>Date.now()&&!await confirmBox("Replace the running power hour?",`“${POWER.name}” will be replaced.`,"Replace"))return;
  const now=Date.now();
  try{await api("/config/power.json","PUT",{name:name.slice(0,30),startedAt:now,endsAt:now+mins*60000,effects});audit("power hour started",`${name} for ${mins}m: ${fxText(effects)}`);toast("⚡ Power hour started!");loadPower()}catch(e){fail(e)}};
+
+/* ---------- GLOBAL CARD OF THE DAY ---------- */
+let DAILY_ADMIN_CARD=null, DAILY_ADMIN_LEVELS=[], DAILY_ADMIN_READY=null;
+const easternToday=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+async function loadDailyAdminLevels(){
+ if(DAILY_ADMIN_READY)return DAILY_ADMIN_READY;
+ DAILY_ADMIN_READY=(async()=>{
+  for(const u of ["https://api.aredl.net/v2/api/aredl/levels","https://api.aredl.net/v2/api/aredl/levels?exclude_legacy=false"]){
+   try{
+    const r=await fetch(u);if(!r.ok)throw new Error("HTTP "+r.status);
+    let d=await r.json();d=Array.isArray(d)?d:(d.data||d.levels||d.results||[]);
+    const list=d.filter(x=>x&&x.name&&Number.isFinite(+x.position)&&+x.position>0).map(x=>{
+     const raw=JSON.stringify(x),ym=raw.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/),im=raw.match(/https?:[^"\s]+?\.(?:jpe?g|png|webp)/i);
+     return {id:String(x.id),name:String(x.name),position:+x.position,yt:ym?ym[1]:null,img:im?im[0].replace(/\\\//g,"/"):null};
+    });
+    if(list.length>=20){DAILY_ADMIN_LEVELS=list.sort((a,b)=>a.position-b.position);return}
+   }catch(e){}
+  }
+  throw new Error("Couldn't load the AREDL card list. Check your connection and try again.");
+ })().catch(e=>{DAILY_ADMIN_READY=null;throw e});
+ return DAILY_ADMIN_READY;
+}
+function renderDailyAdminResults(){
+ const q=$("#dailyAdminSearch").value.trim().toLowerCase(),rows=DAILY_ADMIN_LEVELS.filter(c=>!q||c.name.toLowerCase().includes(q)||String(c.position).includes(q)).slice(0,150),host=$("#dailyAdminResults");
+ host.replaceChildren();
+ if(!rows.length){host.append(h("div",{class:"mut",text:"No matching cards."}));return}
+ for(const c of rows){
+  const selected=DAILY_ADMIN_CARD&&String(DAILY_ADMIN_CARD.id)===String(c.id);
+  host.append(h("button",{class:"preset",style:selected?"border-color:var(--gold);background:rgba(255,210,63,.12)":"",onclick:()=>{
+   DAILY_ADMIN_CARD=c;$("#dailyAdminChosen").textContent=`Selected: #${c.position} · ${c.name}`;$("#dailyAdminSet").disabled=false;renderDailyAdminResults();
+  }},h("b",{text:"#"+c.position+" · "+c.name}),h("span",{text:"Click to select this card"})));
+ }
+}
+async function loadDailyAdmin(){
+ $("#dailyAdminStatus").textContent="Loading…";
+ try{
+  await loadDailyAdminLevels();
+  const saved=await api("/config/cardOfDay.json");
+  if(saved&&saved.day===easternToday()&&saved.card){
+   const match=DAILY_ADMIN_LEVELS.find(c=>String(c.id)===String(saved.card.id))||saved.card;
+   DAILY_ADMIN_CARD=match;$("#dailyAdminChosen").textContent=`Today's card: #${match.position} · ${match.name}`;$("#dailyAdminStatus").textContent="Custom card active";
+  }else{
+   DAILY_ADMIN_CARD=null;$("#dailyAdminChosen").textContent="No custom card — daily random selection is active";$("#dailyAdminStatus").textContent="Random selection";
+  }
+  $("#dailyAdminSet").disabled=!DAILY_ADMIN_CARD;renderDailyAdminResults();
+ }catch(e){fail(e,"Card of the Day");$("#dailyAdminStatus").textContent="Load failed"}
+}
+$("#dailyAdminSearch").oninput=()=>{if(DAILY_ADMIN_LEVELS.length)renderDailyAdminResults()};
+$("#dailyAdminRefresh").onclick=async()=>{DAILY_ADMIN_READY=null;try{await loadDailyAdminLevels();renderDailyAdminResults();toast("Card list refreshed")}catch(e){fail(e)}};
+$("#dailyAdminSet").onclick=async()=>{
+ if(!DAILY_ADMIN_CARD)return;
+ const c=DAILY_ADMIN_CARD,day=easternToday();
+ if(!await confirmBox("Set today's Card of the Day?",`All players will see #${c.position} · ${c.name} until midnight Eastern Time.`,"Set Card"))return;
+ try{
+  await api("/config/cardOfDay.json","PUT",{day,card:{id:String(c.id),name:c.name,position:+c.position,yt:c.yt||null,img:c.img||null},updatedAt:{".sv":"timestamp"},updatedBy:S.email});
+  $("#dailyAdminStatus").textContent="Custom card active";$("#dailyAdminChosen").textContent=`Today's card: #${c.position} · ${c.name}`;
+  audit("card of the day",`Set #${c.position} ${c.name} for ${day}`);toast("⭐ Card of the Day updated for everyone");
+ }catch(e){fail(e)}
+};
+$("#dailyAdminReset").onclick=async()=>{
+ if(!await confirmBox("Reset Card of the Day?","Removes your custom selection. Everyone returns to the automatic daily random card.","Reset to Random",true))return;
+ try{
+  await api("/config/cardOfDay.json","DELETE");DAILY_ADMIN_CARD=null;$("#dailyAdminSet").disabled=true;
+  $("#dailyAdminChosen").textContent="No custom card — daily random selection is active";$("#dailyAdminStatus").textContent="Random selection";
+  renderDailyAdminResults();audit("card of the day","Reset to automatic daily random selection");toast("⭐ Automatic Card of the Day restored");
+ }catch(e){fail(e)}
+};
 
 /* ---------- LOG ---------- */
 async function loadLog(){
