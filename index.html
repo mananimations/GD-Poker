@@ -6,19 +6,14 @@
 <div id="menu">
  <div id="mbox">
   <h1>★ DEMON PICTURE POKER ★</h1>
-  <div id="m-main" class="mscr">
-   <div id="dc">
-    <button class="btn big" id="dcin">Log in with Discord</button>
-    <div id="dcuser" hidden><img id="dcav" alt=""><span>Logged in as <b id="dcname"></b></span> <button class="link" id="dcout">log out</button></div>
-    <div id="dcerr" class="err"></div>
-   </div>
-   <div id="pf">
-    <div id="pfimg">?</div>
-    <div class="pfc"><b>Profile picture <em>(optional)</em></b>
-     <span>Your opponent sees it instead of the shopkeeper. <i id="pfdc">Logged in, so your Discord avatar is used by default.</i></span>
-     <div><label class="link">Choose picture<input type="file" id="pfile" accept="image/*" hidden></label> <button class="link" id="pfedit" hidden>adjust</button> <button class="link" id="pfclear" hidden>remove</button></div>
-    </div>
-   </div>
+  <div id="m-login" class="mscr">
+   <p>Log in to play</p>
+   <small>Sign in with your Discord account. Your Discord name and avatar are used in the game.</small>
+   <button class="btn big" id="dcin">Log in with Discord</button>
+   <div id="dcerr" class="err"></div>
+  </div>
+  <div id="m-main" class="mscr" hidden>
+   <div id="dcuser"><img id="dcav" alt=""><span>Logged in as <b id="dcname"></b></span> <button class="link" id="dcout">log out</button></div>
    <p>Choose how you want to play</p>
    <button class="btn big" id="mBot" disabled>🤖 PLAY VS BOT</button>
    <button class="btn big alt" id="mPvp" disabled>👥 PLAY VS PLAYER</button>
@@ -35,14 +30,6 @@
     <button class="btn dbtn" data-d="mogger" style="--dc:#ffd23f"><b>Mogger</b><span>The smartest player ever. Never makes mistakes.</span></button>
    </div>
    <button class="link" id="mBack3">← back</button>
-  </div>
-  <div id="m-crop" class="mscr" hidden>
-   <p>Position your picture</p>
-   <canvas id="cropcv" width="260" height="260"></canvas>
-   <label class="zl">Zoom <input type="range" id="cropz" min="100" max="400" value="100"></label>
-   <small>Drag the picture to move it, and use the slider or mouse wheel to zoom.</small>
-   <button class="btn big" id="cropok">SAVE PICTURE</button>
-   <button class="link" id="cropno">cancel</button>
   </div>
   <div id="m-name" class="mscr" hidden>
    <p>Type your name</p>

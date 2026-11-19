@@ -455,77 +455,29 @@ function enterGame(msg,pic,chr){
  const mv=$("#myav");mv.hidden=!myPic;if(myPic)mv.src=myPic;
  say(msg);$("#go").disabled=false;
 }
-// optional profile picture (kept in this browser, shrunk to 160px)
-let customPic=null,dcPic=null,dcUser=null;
-function refreshPic(){myPic=customPic||dcPic;const e=$("#pfimg");e.style.backgroundImage=myPic?`url("${myPic}")`:"";e.textContent=myPic?"":"?";
- $("#pfclear").hidden=!customPic;$("#pfedit").hidden=!customPic||!store.get("dpp_picsrc");$("#pf").classList.toggle("dc",!!dcPic&&!customPic)}
-function setPic(p){customPic=p;refreshPic()}
-{const saved=store.get("dpp_pic");if(goodPic(saved))setPic(saved)}
-// picture editor: drag to position, slider / wheel to zoom, circle shows exactly what opponents will see
-const CV=$("#cropcv"),cx2=CV.getContext("2d"),CS=260,CR=120;
-const cr={img:null,src:null,z:1,x:CS/2,y:CS/2};
-const crBase=()=>2*CR/Math.min(cr.img.width,cr.img.height);
-function crClamp(){const s=crBase()*cr.z,w=cr.img.width*s/2,h=cr.img.height*s/2,c=CS/2;
- cr.x=Math.min(c-CR+w,Math.max(c+CR-w,cr.x));cr.y=Math.min(c-CR+h,Math.max(c+CR-h,cr.y))}
-function crDraw(){
- crClamp();const s=crBase()*cr.z,w=cr.img.width*s,h=cr.img.height*s;
- cx2.clearRect(0,0,CS,CS);cx2.drawImage(cr.img,cr.x-w/2,cr.y-h/2,w,h);
- cx2.fillStyle="rgba(0,0,0,.62)";cx2.beginPath();cx2.rect(0,0,CS,CS);cx2.arc(CS/2,CS/2,CR,0,Math.PI*2,true);cx2.fill("evenodd");
- cx2.strokeStyle="#ffd23f";cx2.lineWidth=3;cx2.beginPath();cx2.arc(CS/2,CS/2,CR,0,Math.PI*2);cx2.stroke();
-}
-function openCrop(img,src,st){
- cr.img=img;cr.src=src;cr.z=st?st.z:1;cr.x=st?st.x*CS:CS/2;cr.y=st?st.y*CS:CS/2;
- $("#cropz").value=Math.round(cr.z*100);crDraw();scr("m-crop");
-}
-$("#cropz").oninput=e=>{cr.z=e.target.value/100;crDraw()};
-CV.addEventListener("wheel",e=>{e.preventDefault();cr.z=Math.min(4,Math.max(1,cr.z*(e.deltaY<0?1.08:1/1.08)));$("#cropz").value=Math.round(cr.z*100);crDraw()},{passive:false});
-{let drag=null;
- CV.onpointerdown=e=>{drag={x:e.clientX,y:e.clientY,ox:cr.x,oy:cr.y,k:CS/CV.getBoundingClientRect().width};CV.setPointerCapture(e.pointerId)};
- CV.onpointermove=e=>{if(!drag)return;cr.x=drag.ox+(e.clientX-drag.x)*drag.k;cr.y=drag.oy+(e.clientY-drag.y)*drag.k;crDraw()};
- CV.onpointerup=CV.onpointercancel=()=>{drag=null}}
-$("#pfile").onchange=e=>{
- const f=e.target.files[0];e.target.value="";if(!f||!/^image\//.test(f.type))return;
- const url=URL.createObjectURL(f),im=new Image();
- im.onload=()=>{ // keep a copy (max 640px) so the picture can be adjusted again later
-  const m=Math.min(1,640/Math.max(im.width,im.height)),cv=document.createElement("canvas");cv.width=Math.round(im.width*m);cv.height=Math.round(im.height*m);
-  cv.getContext("2d").drawImage(im,0,0,cv.width,cv.height);URL.revokeObjectURL(url);
-  const src=cv.toDataURL("image/jpeg",.85),i2=new Image();i2.onload=()=>openCrop(i2,src,null);i2.src=src};
- im.onerror=()=>URL.revokeObjectURL(url);im.src=url;
-};
-$("#pfedit").onclick=()=>{sfxClick();const src=store.get("dpp_picsrc");if(!src)return;const im=new Image();
- im.onload=()=>{let st=null;try{st=JSON.parse(store.get("dpp_crop"))}catch(e){}openCrop(im,src,st&&isFinite(st.z)?st:null)};im.src=src};
-$("#cropno").onclick=()=>{sfxClick();scr("m-main")};
-$("#cropok").onclick=()=>{
- sfxClick();crClamp();const s=crBase()*cr.z,iw=cr.img.width,ih=cr.img.height,c=CS/2;
- const sx=(c-CR-(cr.x-iw*s/2))/s,sy=(c-CR-(cr.y-ih*s/2))/s,sw=2*CR/s,o=document.createElement("canvas");o.width=o.height=160;
- o.getContext("2d").drawImage(cr.img,sx,sy,sw,sw,0,0,160,160);
- const p=o.toDataURL("image/jpeg",.88);store.set("dpp_pic",p);store.set("dpp_picsrc",cr.src);store.set("dpp_crop",JSON.stringify({z:cr.z,x:cr.x/CS,y:cr.y/CS}));
- setPic(p);scr("m-main");
-};
-$("#pfclear").onclick=()=>{sfxClick();setPic(null);["dpp_pic","dpp_picsrc","dpp_crop"].forEach(store.del)};
+let dcPic=null,dcUser=null;
 // ---- Discord login (OAuth2 implicit flow, "identify" scope only; the token is used once and never stored)
 const dcErr=t=>{$("#dcerr").textContent=t||""};
-function dcShow(){
- const u=dcUser;$("#dcin").hidden=!!u;$("#dcuser").hidden=!u;
- if(u){$("#dcname").textContent=u.name;$("#dcav").src=u.avatar;
-  if(!$("#mname").value)$("#mname").value=clean(store.get("dpp_name")||u.name)}
- refreshPic();
+function dcShow(){ // logged in -> main menu, otherwise the login screen
+ const u=dcUser;myPic=dcPic;
+ if(u){$("#dcname").textContent=u.name;$("#dcav").src=u.avatar;if(!$("#mname").value)$("#mname").value=clean(store.get("dpp_name")||u.name)}
+ scr(u?"m-main":"m-login");
 }
-function dcApply(u){ // u = {id,name,avatar(url),pic(data url)}
- dcUser=u;dcPic=goodPic(u.pic);dcShow();
-}
+function dcApply(u){dcUser=u;dcPic=goodPic(u.pic);dcShow()}
 function avatarData(url){return new Promise((res,rej)=>{const im=new Image();im.crossOrigin="anonymous";
  im.onload=()=>{const o=document.createElement("canvas");o.width=o.height=160;o.getContext("2d").drawImage(im,0,0,160,160);try{res(o.toDataURL("image/jpeg",.88))}catch(e){rej(e)}};
  im.onerror=()=>rej(new Error("avatar"));im.src=url})}
 async function dcFinish(token){
+ dcErr("Logging you in…");$("#dcin").disabled=true;
  try{
   const r=await fetch("https://discord.com/api/users/@me",{headers:{Authorization:"Bearer "+token}});
   if(!r.ok)throw new Error("HTTP "+r.status);const j=await r.json();
   const id=String(j.id),av=j.avatar?`https://cdn.discordapp.com/avatars/${id}/${j.avatar}.png?size=128`:`https://cdn.discordapp.com/embed/avatars/${Number((BigInt(id)>>22n)%6n)}.png`;
   let pic=null;try{pic=await avatarData(av)}catch(e){}
   const u={id,name:clean(j.global_name||j.username),avatar:av,pic};
-  store.set("dpp_dc",JSON.stringify(u));dcApply(u);
+  store.set("dpp_dc",JSON.stringify(u));dcErr("");dcApply(u);
  }catch(e){dcErr("Discord login failed: "+(e.message||e))}
+ $("#dcin").disabled=false;
 }
 $("#dcin").onclick=()=>{sfxClick();
  if(!DISCORD_CLIENT_ID){dcErr("Discord login isn't set up yet: add your Client ID at the top of script.js.");return}
@@ -533,7 +485,7 @@ $("#dcin").onclick=()=>{sfxClick();
  const st=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,"0")).join("");
  try{sessionStorage.setItem("dpp_state",st)}catch(e){}
  location.href="https://discord.com/oauth2/authorize?"+new URLSearchParams({client_id:DISCORD_CLIENT_ID,response_type:"token",scope:"identify",state:st,redirect_uri:location.origin+location.pathname,prompt:"none"})};
-$("#dcout").onclick=()=>{sfxClick();dcUser=dcPic=null;store.del("dpp_dc");store.del("dpp_name");$("#dcin").hidden=false;$("#dcuser").hidden=true;$("#mname").value="";refreshPic()};
+$("#dcout").onclick=()=>{sfxClick();dcUser=dcPic=myPic=null;store.del("dpp_dc");store.del("dpp_name");$("#mname").value="";dcErr("");scr("m-login")};
 { // coming back from Discord?
  const hp=new URLSearchParams(location.hash.slice(1)),tok=hp.get("access_token"),err=hp.get("error_description")||hp.get("error");
  if(tok||err){history.replaceState(null,"",location.pathname+location.search);
