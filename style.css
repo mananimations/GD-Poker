@@ -142,7 +142,18 @@ h1{margin:0 0 8px;text-align:center;font-size:clamp(20px,4vw,30px);color:var(--g
 .mstack{display:flex;flex-direction:column;gap:20px;min-height:0}
 #mstack{min-width:0}
 #macct{justify-content:flex-start}
-#mcardday{align-items:center;justify-content:center;gap:8px;padding:14px}
+#mcardday{
+ flex:1 1 auto;
+ min-height:0;
+ width:100%;
+ box-sizing:border-box;
+ align-items:center;
+ justify-content:center;
+ text-align:center;
+ gap:8px;
+ padding:14px;
+}
+#mcardday>*{align-self:center;text-align:center}
 #mcardday .card{width:min(100%,130px);flex:none}
 #mcardday #dailyname{font-size:13px;color:var(--txt)}
 #mcardday #dailydate{font-size:11px}
