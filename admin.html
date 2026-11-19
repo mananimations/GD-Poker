@@ -51,6 +51,8 @@ main{max-width:1250px;margin:0 auto;padding:16px;display:flex;flex-direction:col
 
 /* live */
 #games{display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:14px}
+@media(max-width:560px){#games{grid-template-columns:1fr}}
+#liveq{width:min(100%,320px)}
 .game{display:flex;flex-direction:column;gap:8px}.game.stale{opacity:.55}
 .gh{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .gp{display:flex;flex-direction:column;gap:5px;background:var(--card);border-radius:10px;padding:8px}
@@ -145,7 +147,9 @@ tr.banned td{background:rgba(255,77,94,.12)}
   <section class="tab" id="t-live">
    <div class="bar" style="margin-bottom:12px">
     <h2>Live games</h2><span id="lcount" class="mut"></span><span class="sp"></span>
+    <input type="text" id="liveq" placeholder="Search players in games (name or ID)" aria-label="Search players in live games">
     <label class="mut"><input type="checkbox" id="showStale"> show stale</label>
+    <button class="btn sm danger" id="endAllGames">End every game</button>
     <button class="btn sm dim" id="clearStale">Clear stale</button>
    </div>
    <div id="games"></div>
@@ -392,33 +396,49 @@ function playerBlock(p,g,opp){
    isBot?null:h("button",{class:"btn sm gold",onclick:()=>giveTo(p.id)},"🎁 Give cards"),
    isBot?null:h("button",{class:"btn sm danger",onclick:()=>banDialog(p.id,p.name)},"Ban")),
   h("div",{class:"hand"},[0,1,2,3,4].map(i=>hand[i]?tile(hand[i],{dis:g.stage==="holding"&&held[i]===false}):h("div",{class:"ct empty"}))))}
-function gameNode(g,stale){
+function gameNode(g,stale,mid){
  const chat=listOf(g.chat).slice(-10);
  return h("div",{class:"panel game"+(stale?" stale":"")},
   h("div",{class:"gh"},h("span",{class:"chip g",text:g.mode==="pvp"?"PLAYER vs PLAYER":"VS BOT"+(g.diff?" · "+String(g.diff).toUpperCase():"")}),
    h("span",{class:"chip",text:STAGES[g.stage]||String(g.stage||"")}),h("span",{class:"chip",text:"bet "+(+g.bet||0)}),h("span",{class:"mut age"}),stale?h("span",{class:"chip r",text:"STALE"}):null),
   playerBlock(g.a||{},g),playerBlock(g.b||{},g),
   g.res?h("div",{class:"res",text:String(g.res)}):null,
-  g.mode==="pvp"?h("div",{class:"chat"},chat.length?chat.map(c=>h("div",{},h("b",{text:String(c.w||"?")+": "}),String(c.x||""))):h("span",{class:"mut",text:"no chat yet"})):null)}
+  g.mode==="pvp"?h("div",{class:"chat"},chat.length?chat.map(c=>h("div",{},h("b",{text:String(c.w||"?")+": "}),String(c.x||""))):h("span",{class:"mut",text:"no chat yet"})):null,
+  h("div",{class:"bar",style:"justify-content:flex-end"},h("button",{class:"btn sm danger",onclick:()=>endOneGame(mid,g)} ,"End this game")))}
 function renderLive(d){
- const list=$("#games"),showStale=$("#showStale").checked,now=Date.now();
+ const list=$("#games"),showStale=$("#showStale").checked,query=$("#liveq").value.trim().toLowerCase(),now=Date.now();
  const rows=Object.entries(d||{}).filter(([k,g])=>g&&typeof g==="object").sort((x,y)=>(+y[1].ts||0)-(+x[1].ts||0));
- let live=0;staleIds=[];const seen=new Set(),order=[];
+ let live=0;staleIds=[];const seen=new Set(),order=[];let matched=0;
  for(const[mid,g]of rows){
   const stale=now-(+g.ts||0)>90000;if(stale)staleIds.push(mid);else live++;
   if(stale&&!showStale)continue;
+  const players=[g.a||{},g.b||{}],hay=players.map(p=>String(p.name||"")+" "+String(p.id||"")).join(" ").toLowerCase();
+  if(query&&!hay.includes(query))continue;
+  matched++;
   const{ts,...rest}=g,sig=JSON.stringify(rest)+stale+Object.keys(PLAYERS).length+Object.keys(BANS).length;
-  let e=LIVE.get(mid);if(!e||e.sig!==sig){e={sig,node:gameNode(g,stale)};LIVE.set(mid,e)}
+  let e=LIVE.get(mid);if(!e||e.sig!==sig){e={sig,node:gameNode(g,stale,mid)};LIVE.set(mid,e)}
   e.node.querySelector(".age").textContent="updated "+ago(g.ts);seen.add(mid);order.push(e.node)}
  for(const k of[...LIVE.keys()])if(!seen.has(k))LIVE.delete(k);
  list.replaceChildren(...order);
- if(!order.length)list.append(h("div",{class:"panel empty-msg",text:"No games being played right now. Games appear here the moment a player deals."}));
- $("#lcount").textContent=`${live} live${staleIds.length?" · "+staleIds.length+" stale":""}`}
+ if(!order.length)list.append(h("div",{class:"panel empty-msg",text:query?"No games match that player search.":"No games being played right now. Games appear here the moment a player deals."}));
+ $("#lcount").textContent=`${live} live${staleIds.length?" · "+staleIds.length+" stale":""}${query?" · "+matched+" matching":""}`}
+async function endOneGame(mid,g){
+ if(!await confirmBox("End this game?",`This will immediately remove the game between ${g.a&&g.a.name||"Player A"} and ${g.b&&g.b.name||"Player B"}. Players will no longer be able to continue it.`,"End game",true))return;
+ try{await api("/live/"+encodeURIComponent(mid)+".json","PUT",null);LIVE.delete(mid);await audit("end_game",mid);toast("Game ended");pollLive()}catch(e){fail(e,"End game")}}
+async function endEveryGame(){
+ let current;try{current=await api("/live.json")||{}}catch(e){return fail(e,"Load live games")}
+ const ids=Object.keys(current).filter(k=>current[k]&&typeof current[k]==="object");
+ if(!ids.length)return toast("There are no games to end");
+ if(!await confirmBox("End every game?",`This will immediately end all ${ids.length} game(s), including stale games. This cannot be undone.`,"End all games",true))return;
+ const patch={};ids.forEach(id=>patch[id]=null);
+ try{await api("/live.json","PATCH",patch);ids.forEach(id=>LIVE.delete(id));await audit("end_all_games",ids.length+" games");toast("Ended "+ids.length+" game(s)");pollLive()}catch(e){fail(e,"End all games")}}
 async function pollLive(){
  if(!S.tok||tab!=="live"||document.hidden||liveBusy)return;liveBusy=true;
  try{renderLive(await api("/live.json"));setConn(true)}catch(e){setConn(false);console.error(e)}liveBusy=false}
 setInterval(pollLive,2000);setInterval(()=>{if(S.tok&&tab==="live")loadPlayers().catch(()=>{});loadBans(true).catch(()=>{})},30000);
 $("#showStale").onchange=pollLive;
+$("#liveq").oninput=()=>pollLive();
+$("#endAllGames").onclick=endEveryGame;
 $("#clearStale").onclick=async()=>{if(!staleIds.length)return toast("No stale games");const u={};staleIds.forEach(k=>u[k]=null);
  try{await api("/live.json","PATCH",u);toast("Cleared "+staleIds.length);pollLive()}catch(e){fail(e)}};
 const copy=t=>{try{navigator.clipboard.writeText(t);toast("Copied "+t)}catch(e){}};
