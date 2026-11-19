@@ -98,3 +98,6 @@ h1{margin:0 0 8px;text-align:center;font-size:clamp(20px,4vw,30px);color:var(--g
 #cfb{max-width:380px;text-align:center;background:var(--panel);border:5px solid var(--red);border-radius:18px;box-shadow:0 8px 0 var(--ink);padding:20px 22px;animation:pop .25s}
 #cfb p{margin:0 0 6px;font-size:24px;font-weight:900;color:var(--gold);text-shadow:2px 2px 0 var(--ink)}#cfb small{opacity:.8;font-size:13px}.cfr{display:flex;gap:12px;justify-content:center;margin-top:16px}
 #menu{overflow:auto}
+
+#cropcv{width:260px;height:260px;max-width:100%;border-radius:14px;background:#000;touch-action:none;cursor:grab;border:4px solid var(--ink)}#cropcv:active{cursor:grabbing}
+.zl{display:flex;gap:10px;align-items:center;font-weight:900}.zl input{width:200px;accent-color:var(--gold)}

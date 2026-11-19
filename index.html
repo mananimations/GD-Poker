@@ -11,13 +11,21 @@
     <div id="pfimg">?</div>
     <div class="pfc"><b>Profile picture <em>(optional)</em></b>
      <span>Your opponent sees it instead of the shopkeeper.</span>
-     <div><label class="link">Choose picture<input type="file" id="pfile" accept="image/*" hidden></label> <button class="link" id="pfclear" hidden>remove</button></div>
+     <div><label class="link">Choose picture<input type="file" id="pfile" accept="image/*" hidden></label> <button class="link" id="pfedit" hidden>adjust</button> <button class="link" id="pfclear" hidden>remove</button></div>
     </div>
    </div>
    <p>Choose how you want to play</p>
    <button class="btn big" id="mBot" disabled>🤖 PLAY VS BOT</button>
    <button class="btn big alt" id="mPvp" disabled>👥 PLAY VS PLAYER</button>
    <div id="mload">Loading demons…</div>
+  </div>
+  <div id="m-crop" class="mscr" hidden>
+   <p>Position your picture</p>
+   <canvas id="cropcv" width="260" height="260"></canvas>
+   <label class="zl">Zoom <input type="range" id="cropz" min="100" max="400" value="100"></label>
+   <small>Drag the picture to move it, and use the slider or mouse wheel to zoom.</small>
+   <button class="btn big" id="cropok">SAVE PICTURE</button>
+   <button class="link" id="cropno">cancel</button>
   </div>
   <div id="m-name" class="mscr" hidden>
    <p>Type your name</p>

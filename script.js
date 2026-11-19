@@ -231,12 +231,17 @@ function onMsg(m){
   case"cards":if(net.onCards){const f=net.onCards;net.onCards=null;f(m.cards)}break;
   case"opdraw":oppDiscard(m.idx||[]);break;
   case"reveal":oppReveal=m.hand;if(meDrew)showdown(oppReveal);break;
+  case"bye":opponentLeft();break;
  }
 }
 function opponentLeft(why){
  if(!net.started)return;net.started=false;clearInterval(net.hb);
  showOv(`${OPP} ${why||"left the game"}.`,"click to return to the menu",()=>location.reload());
+ setTimeout(()=>location.reload(),8000);
 }
+// tell the opponent right away when this tab is closed or refreshed
+const sayBye=()=>{if(!net.started)return;send({t:"bye"});try{net.conn.close()}catch(e){}};
+addEventListener("pagehide",sayBye);addEventListener("beforeunload",sayBye);
 function setupConn(c,role){
  net.conn=c;net.role=role;net.last=Date.now();
  c.on("data",onMsg);c.on("close",()=>opponentLeft());c.on("error",()=>{});
@@ -246,7 +251,7 @@ let myPic=null;
 const goodPic=p=>typeof p==="string"&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(p)&&p.length<80000?p:null;
 function beginPvp(name,pic){
  net.started=true;OPP=name;mode="pvp";
- clearInterval(net.hb);net.hb=setInterval(()=>{send({t:"ping"});if(Date.now()-net.last>90000)opponentLeft("lost connection")},5000);
+ clearInterval(net.hb);net.hb=setInterval(()=>{send({t:"ping"});if(Date.now()-net.last>25000)opponentLeft("lost connection")},3000);
  enterGame(`Matched with ${OPP}! Press DEAL when you're ready.`,pic);
  $("#st").className=live?"":"bad";$("#st").textContent=`Playing against ${OPP} (peer-to-peer). Both players press DEAL to start each round.`;
 }
@@ -380,17 +385,50 @@ function enterGame(msg,pic){
  say(msg);$("#go").disabled=false;
 }
 // optional profile picture (kept in this browser, shrunk to 160px)
-function setPic(p){myPic=p;const e=$("#pfimg");e.style.backgroundImage=p?`url("${p}")`:"";e.textContent=p?"":"?";$("#pfclear").hidden=!p}
+function setPic(p){myPic=p;const e=$("#pfimg");e.style.backgroundImage=p?`url("${p}")`:"";e.textContent=p?"":"?";$("#pfclear").hidden=!p;$("#pfedit").hidden=!p||!store.get("dpp_picsrc")}
 {const saved=store.get("dpp_pic");if(goodPic(saved))setPic(saved)}
+// picture editor: drag to position, slider / wheel to zoom, circle shows exactly what opponents will see
+const CV=$("#cropcv"),cx2=CV.getContext("2d"),CS=260,CR=120;
+const cr={img:null,src:null,z:1,x:CS/2,y:CS/2};
+const crBase=()=>2*CR/Math.min(cr.img.width,cr.img.height);
+function crClamp(){const s=crBase()*cr.z,w=cr.img.width*s/2,h=cr.img.height*s/2,c=CS/2;
+ cr.x=Math.min(c-CR+w,Math.max(c+CR-w,cr.x));cr.y=Math.min(c-CR+h,Math.max(c+CR-h,cr.y))}
+function crDraw(){
+ crClamp();const s=crBase()*cr.z,w=cr.img.width*s,h=cr.img.height*s;
+ cx2.clearRect(0,0,CS,CS);cx2.drawImage(cr.img,cr.x-w/2,cr.y-h/2,w,h);
+ cx2.fillStyle="rgba(0,0,0,.62)";cx2.beginPath();cx2.rect(0,0,CS,CS);cx2.arc(CS/2,CS/2,CR,0,Math.PI*2,true);cx2.fill("evenodd");
+ cx2.strokeStyle="#ffd23f";cx2.lineWidth=3;cx2.beginPath();cx2.arc(CS/2,CS/2,CR,0,Math.PI*2);cx2.stroke();
+}
+function openCrop(img,src,st){
+ cr.img=img;cr.src=src;cr.z=st?st.z:1;cr.x=st?st.x*CS:CS/2;cr.y=st?st.y*CS:CS/2;
+ $("#cropz").value=Math.round(cr.z*100);crDraw();scr("m-crop");
+}
+$("#cropz").oninput=e=>{cr.z=e.target.value/100;crDraw()};
+CV.addEventListener("wheel",e=>{e.preventDefault();cr.z=Math.min(4,Math.max(1,cr.z*(e.deltaY<0?1.08:1/1.08)));$("#cropz").value=Math.round(cr.z*100);crDraw()},{passive:false});
+{let drag=null;
+ CV.onpointerdown=e=>{drag={x:e.clientX,y:e.clientY,ox:cr.x,oy:cr.y,k:CS/CV.getBoundingClientRect().width};CV.setPointerCapture(e.pointerId)};
+ CV.onpointermove=e=>{if(!drag)return;cr.x=drag.ox+(e.clientX-drag.x)*drag.k;cr.y=drag.oy+(e.clientY-drag.y)*drag.k;crDraw()};
+ CV.onpointerup=CV.onpointercancel=()=>{drag=null}}
 $("#pfile").onchange=e=>{
  const f=e.target.files[0];e.target.value="";if(!f||!/^image\//.test(f.type))return;
  const url=URL.createObjectURL(f),im=new Image();
- im.onload=()=>{const S=160,cv=document.createElement("canvas");cv.width=cv.height=S;const x=cv.getContext("2d"),m=Math.min(im.width,im.height);
-  x.drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,0,0,S,S);URL.revokeObjectURL(url);
-  const p=cv.toDataURL("image/jpeg",.85);setPic(p);store.set("dpp_pic",p)};
+ im.onload=()=>{ // keep a copy (max 640px) so the picture can be adjusted again later
+  const m=Math.min(1,640/Math.max(im.width,im.height)),cv=document.createElement("canvas");cv.width=Math.round(im.width*m);cv.height=Math.round(im.height*m);
+  cv.getContext("2d").drawImage(im,0,0,cv.width,cv.height);URL.revokeObjectURL(url);
+  const src=cv.toDataURL("image/jpeg",.85),i2=new Image();i2.onload=()=>openCrop(i2,src,null);i2.src=src};
  im.onerror=()=>URL.revokeObjectURL(url);im.src=url;
 };
-$("#pfclear").onclick=()=>{sfxClick();setPic(null);store.del("dpp_pic")};
+$("#pfedit").onclick=()=>{sfxClick();const src=store.get("dpp_picsrc");if(!src)return;const im=new Image();
+ im.onload=()=>{let st=null;try{st=JSON.parse(store.get("dpp_crop"))}catch(e){}openCrop(im,src,st&&isFinite(st.z)?st:null)};im.src=src};
+$("#cropno").onclick=()=>{sfxClick();scr("m-main")};
+$("#cropok").onclick=()=>{
+ sfxClick();crClamp();const s=crBase()*cr.z,iw=cr.img.width,ih=cr.img.height,c=CS/2;
+ const sx=(c-CR-(cr.x-iw*s/2))/s,sy=(c-CR-(cr.y-ih*s/2))/s,sw=2*CR/s,o=document.createElement("canvas");o.width=o.height=160;
+ o.getContext("2d").drawImage(cr.img,sx,sy,sw,sw,0,0,160,160);
+ const p=o.toDataURL("image/jpeg",.88);store.set("dpp_pic",p);store.set("dpp_picsrc",cr.src);store.set("dpp_crop",JSON.stringify({z:cr.z,x:cr.x/CS,y:cr.y/CS}));
+ setPic(p);scr("m-main");
+};
+$("#pfclear").onclick=()=>{sfxClick();setPic(null);["dpp_pic","dpp_picsrc","dpp_crop"].forEach(store.del)};
 $("#mBot").onclick=async()=>{sfxClick();startMusic();await ready;mode="bot";OPP="Dealer";enterGame("Welcome! Press DEAL to start.")};
 $("#mPvp").onclick=()=>{sfxClick();startMusic();scr("m-name");$("#mname").focus()};
 $("#mBack1").onclick=()=>{sfxClick();scr("m-main")};
