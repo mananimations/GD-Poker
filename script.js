@@ -37,7 +37,8 @@ const bgm=new Audio("assets/bgm.mp3");bgm.loop=true;bgm.volume=musVol;bgm.preloa
 let musicWarned=false;
 function startMusic(){wantPlay=true;if(!musicOn)return;const p=bgm.play();
  if(p&&p.catch)p.catch(()=>{if(!musicWarned){musicWarned=true;$("#st").insertAdjacentHTML("beforeend"," · Browser blocked the music: move the 🎵 slider to start it.")}})}
-["pointerdown","keydown"].forEach(ev=>document.addEventListener(ev,()=>{if(wantPlay===false)startMusic()},{once:true}));
+wantPlay=true;
+if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",()=>startMusic(),{once:true})}else{startMusic()}
 {const sv=$("#sfxv"),mv=$("#musv"),ss=store.get("dpp_sfx"),ms=store.get("dpp_mus");
  if(ss!==null&&!isNaN(+ss))sv.value=ss;if(ms!==null&&!isNaN(+ms))mv.value=ms;
  const applySfx=()=>{sfxVol=sv.value/100;sfxOn=sfxVol>0;if(mg)mg.gain.value=sfxVol};
@@ -859,10 +860,7 @@ ready=load().catch(e=>{levels=FB.map((n,i)=>({id:"f"+i,name:n,position:FBP[i]}))
      if(menuEl.parentNode)menuEl.parentNode.replaceChild(menuPlaceholder,menuEl);
     }
    }
-   if(!wasLocked){
-    wantPlay=false;
-    try{bgm.pause()}catch(e){}
-   }
+
   }else{
    if(savedMenuEl&&menuPlaceholder&&menuPlaceholder.parentNode){
     menuPlaceholder.parentNode.replaceChild(savedMenuEl,menuPlaceholder);
