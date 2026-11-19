@@ -54,8 +54,8 @@ async function load(){
  if(!live)levels=FB.map((n,i)=>({id:"f"+i,name:n,position:FBP[i]}));
  const st=$("#st");
  if(live){st.textContent=`Live AREDL data: ${levels.length} levels from aredl.net's API.`}
- else{st.className="bad";st.textContent="⚠ COULD NOT REACH THE AREDL API ("+errs[0]+"). Showing an OFFLINE DEMO with placeholder rankings and no thumbnails. Open this file in a normal browser tab (not the chat preview) for the real list.";}
- say("Welcome! Press DEAL to start.");$("#go").disabled=false;
+ else{st.className="bad";st.textContent="⚠ COULD NOT REACH THE AREDL API ("+errs[0]+"). Showing an OFFLINE DEMO with placeholder rankings and no thumbnails.";}
+ $("#mBot").disabled=$("#mPvp").disabled=false;$("#mload").textContent=live?"Ready!":"Offline demo mode (couldn't reach the AREDL API)";
 }
 let API_USED=ENDPOINTS[0];
 function grab(o){const t=JSON.stringify(o);const yt=ytId(t);const m=t.match(/https?:[^"\s]+?\.(?:jpe?g|png|webp)/i);return{yt:yt||undefined,img:m?m[0].replace(/\\\//g,"/"):undefined}}
@@ -98,19 +98,6 @@ function dealerPick(h){
  return keep.map((k,i)=>k?-1:i).filter(i=>i>=0);
 }
 function paint(){pEls.forEach((e,i)=>{e.classList.toggle("on",phase==="hold");e.classList.toggle("hold",phase==="hold"&&held[i]);e.classList.toggle("dis",phase==="hold"&&!held[i])})}
-let forcedList={p:[],d:[]};
-function setupAdmin(k,inp,btn,st,who){
- const apply=()=>{const v=$(inp).value.trim(),out=$(st);
-  if(!v){forcedList[k]=[];out.textContent="Cleared. Next game is random.";return}
-  const cards=[],bad=[];
-  v.split(/[\s,]+/).filter(Boolean).slice(0,5).forEach(x=>{const l=levels.find(y=>y.position===+x);l?cards.push(l):bad.push(x)});
-  if(bad.length){forcedList[k]=[];out.textContent="No level at #"+bad.join(", #")+" in the loaded list.";return}
-  forcedList[k]=cards;out.textContent=`Next game ${who}: `+cards.map(c=>`#${c.position} ${c.name}`).join(", ")};
- $(btn).onclick=apply;$(inp).onkeydown=e=>{if(e.key==="Enter")apply()};
-}
-setupAdmin("p","#adm","#admset","#admst","you get");
-setupAdmin("d","#adm2","#admset2","#admst2","the dealer gets");
-const showOv=()=>new Promise(r=>{const o=$("#ov");o.classList.add("on");o.onclick=()=>{o.classList.remove("on");o.onclick=null;r()}});
 function evalHand(h){
  const cnt={};h.forEach(c=>{const t=tierOf(c.position);cnt[t]=(cnt[t]||0)+1});
  const g=Object.entries(cnt).map(([t,n])=>[+t,n]).sort((a,b)=>b[1]-a[1]||b[0]-a[0]);
@@ -118,55 +105,205 @@ function evalHand(h){
  return{name:H[0],mult:H[1],lvl:H[2],tier:g[0][0],score:[H[2],...g.map(x=>x[0])],txt:H[0]};
 }
 function cmp(a,b){for(let i=0;i<a.length;i++){if(a[i]!==b[i])return a[i]>b[i]?1:-1}return 0}
-const draw1=async()=>{const c=deck.shift();await ensure(c);return c};
-$("#bm").onclick=()=>{sfxClick();if(phase!=="hold"&&phase!=="busy"&&bet>1)$("#bet").textContent=--bet};
-$("#bp").onclick=()=>{sfxClick();if(phase!=="hold"&&phase!=="busy"&&bet<Math.min(10,coins))$("#bet").textContent=++bet};
+
+// ================= GAME FLOW =================
+const OPPDUMMY={id:"?",name:"???",position:9999};
+const APEXMSG="You got the top #1! This card lets you instantly win the game!";
+let mode="bot",OPP="Dealer",myName="You",oppAnimP=Promise.resolve();
+const showOv=(msg,small,onclick)=>new Promise(r=>{const o=$("#ov");$("#ovb p").textContent=msg;$("#ovb small").textContent=small||"click to continue";o.classList.add("on");
+ o.onclick=()=>{if(onclick){onclick();return}o.classList.remove("on");o.onclick=null;r()}});
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const pub=c=>({id:c.id,name:c.name,position:c.position,yt:c.yt,img:c.img});
+const lockBet=()=>phase==="hold"||phase==="busy";
+$("#bm").onclick=()=>{sfxClick();if(!lockBet()&&bet>1)$("#bet").textContent=--bet};
+$("#bp").onclick=()=>{sfxClick();if(!lockBet()&&bet<Math.min(10,coins))$("#bet").textContent=++bet};
+$("#leave").onclick=()=>{sfxClick();location.reload()};
+
+// Deal my five cards and flip them up (shared by bot + player modes)
+async function startRound(h){
+ phase="busy";$("#go").disabled=true;$("#table").classList.remove("done");
+ if(coins<bet){coins=100;bet=Math.min(bet,5);$("#bet").textContent=bet;say("Out of coins! Fresh stack on the house.")}
+ coins-=bet;$("#coins").textContent=coins;$("#win").textContent=0;$("#pn").textContent=$("#dn").textContent="";
+ [...pEls,...dEls].forEach(e=>{e.classList.remove("up","hold","dis","on");e.style.translate="";e.style.opacity=""});
+ dEls.forEach(e=>fill(e,OPPDUMMY));
+ hand=h;held=[true,true,true,true,true];
+ say("Shuffling… loading the pictures!");
+ await Promise.all(hand.map(ensure));
+ await Promise.all(pEls.map((e,i)=>flip(e,hand[i],i*140)));
+ await sleep(500);if(hand.some(c=>c.position===1)){await sleep(1100);await showOv(APEXMSG)}
+ phase="hold";paint();$("#pn").textContent=evalHand(hand).txt;
+ $("#go").textContent="DRAW";$("#go").disabled=false;say("All cards are held. Tap any card you want to DISCARD, then DRAW!");
+}
+async function applyMyDraw(rep,nc){
+ const had1=hand.some(c=>c.position===1);
+ await Promise.all(nc.map(ensure));
+ await Promise.all(rep.map((i,k)=>{hand[i]=nc[k];return replaceCard(pEls[i],nc[k],k*170,true,"0 170%")}));
+ $("#pn").textContent=evalHand(hand).txt;
+ if(!had1&&hand.some(c=>c.position===1)){await sleep(1100);await showOv(APEXMSG)}
+}
+// Opponent's face-down cards slide out and fresh ones slide in
+function oppDiscard(idx){
+ say(idx.length?`${OPP} discards ${idx.length} card${idx.length>1?"s":""}.`:`${OPP} stands pat.`);
+ oppAnimP=Promise.all(idx.map((i,k)=>replaceCard(dEls[i],OPPDUMMY,k*170,false,"0 -170%"))).then(()=>sleep(idx.length?0:700));
+ return oppAnimP;
+}
+async function showdown(oh){
+ await oppAnimP;await sleep(300);
+ await Promise.all(oh.map(ensure));
+ say(`Now let's see ${OPP}'s cards…`);await sleep(700);
+ dEls.forEach((e,i)=>fill(e,oh[i]));await sleep(60);
+ await Promise.all(dEls.map((e,i)=>sleep(i*220).then(()=>{e.classList.add("up");oh[i].position===1?sfxApex():sfxFlip()})));
+ const dl=evalHand(oh),me=evalHand(hand);$("#dn").textContent=dl.txt;await sleep(700);
+ const pA=hand.filter(c=>c.position===1).length,dA=oh.filter(c=>c.position===1).length;
+ const r=(pA||dA)?Math.sign(pA-dA):cmp(me.score,dl.score);let w=0;
+ if(r>0){sfxWin();w=Math.max(bet,Math.round(bet*me.mult));
+  say(pA?(dA?`More #1s than ${OPP}! You got ${w} coins!`:`Top #1! You got ${w} coins!`):`${me.name}! You got ${w} coins!`)}
+ else if(r===0){w=bet;say(pA?"You both have the top #1: it's a draw! Bet returned.":"A tie! Your bet is returned.")}
+ else{sfxLose();say(dA?`${OPP} has the top #1! ${OPP} wins.`:`${OPP} wins this one. Deal again?`)}
+ coins+=w;$("#table").classList.add("done");$("#coins").textContent=coins;$("#win").textContent=w;
+ phase="idle";$("#go").textContent="DEAL";$("#go").disabled=false;
+}
+const repIdx=()=>[0,1,2,3,4].filter(i=>!held[i]);
+const lockDraw=()=>{phase="busy";$("#go").disabled=true;pEls.forEach(e=>e.classList.remove("hold","dis","on"))};
+
+// ---- vs BOT
+async function botDeal(){
+ phase="busy";$("#go").disabled=true;
+ deck=shuffle(levels.slice());dhand=deck.splice(5,5);
+ await startRound(deck.splice(0,5));
+}
+async function botDraw(){
+ lockDraw();const rep=repIdx();if(!rep.length)say("Standing pat!");
+ await applyMyDraw(rep,rep.map(()=>deck.shift()));
+ say(`${OPP}'s turn…`);await sleep(800);
+ const dd=dealerPick(dhand);
+ dd.forEach(i=>{dhand[i]=deck.shift()});
+ await oppDiscard(dd);
+ await showdown(dhand);
+}
+
+// ---- vs PLAYER (peer-to-peer via PeerJS; host deals, guest asks the host for cards)
+const LOBBY="demon-picture-poker-lobby-v1";
+const net={role:null,conn:null,gp:null,lb:null,gen:0,started:false,last:0,hb:null,onCards:null};
+let hostReady=false,guestReady=false,meDrew=false,guestDrew=false,revealed=false,oppReveal=null,ghand=[];
+const send=m=>{try{if(net.conn&&net.conn.open)net.conn.send(m)}catch(e){}};
+const clean=n=>String(n||"").replace(/[\u0000-\u001f]/g,"").trim().slice(0,14)||"Player";
+function resetSync(){meDrew=guestDrew=revealed=false;oppReveal=null;oppAnimP=Promise.resolve()}
+function pvpReady(){
+ phase="busy";$("#go").disabled=true;say(`Waiting for ${OPP} to press DEAL…`);
+ if(net.role==="host"){hostReady=true;hostMaybeDeal()}else send({t:"ready"});
+}
+function hostMaybeDeal(){
+ if(!(hostReady&&guestReady))return;hostReady=guestReady=false;
+ deck=shuffle(levels.slice());const h=deck.splice(0,5);ghand=deck.splice(0,5);
+ resetSync();send({t:"deal",hand:ghand.map(pub)});startRound(h);
+}
+async function pvpDraw(){
+ lockDraw();const rep=repIdx();if(!rep.length)say("Standing pat!");
+ let nc;
+ if(net.role==="host"){nc=rep.map(()=>deck.shift());send({t:"opdraw",idx:rep})}
+ else nc=await new Promise(res=>{net.onCards=res;send({t:"draw",rep})});
+ await applyMyDraw(rep,nc);meDrew=true;
+ if(net.role==="host")hostMaybeReveal();
+ else if(oppReveal)showdown(oppReveal);
+ else say(`Waiting for ${OPP} to draw…`);
+}
+function hostMaybeReveal(){
+ if(revealed||!meDrew||!guestDrew)return;revealed=true;
+ send({t:"reveal",hand:hand.map(pub)});showdown(ghand);
+}
+function onMsg(m){
+ if(!m||typeof m!=="object")return;net.last=Date.now();
+ switch(m.t){
+  case"hello":if(net.started)return;
+   if(net.role==="host")send({t:"hello",name:myName});
+   beginPvp(clean(m.name));break;
+  case"ready":if(net.role==="host"){guestReady=true;hostMaybeDeal()}break;
+  case"deal":if(net.role==="guest"&&Array.isArray(m.hand)){resetSync();startRound(m.hand)}break;
+  case"draw":if(net.role==="host"&&Array.isArray(m.rep)&&!guestDrew){
+    const rep=m.rep.filter(i=>Number.isInteger(i)&&i>=0&&i<5).slice(0,5),cs=rep.map(()=>deck.shift());
+    rep.forEach((i,k)=>{ghand[i]=cs[k]});send({t:"cards",cards:cs.map(pub)});
+    guestDrew=true;oppDiscard(rep);hostMaybeReveal()}break;
+  case"cards":if(net.onCards){const f=net.onCards;net.onCards=null;f(m.cards)}break;
+  case"opdraw":oppDiscard(m.idx||[]);break;
+  case"reveal":oppReveal=m.hand;if(meDrew)showdown(oppReveal);break;
+ }
+}
+function opponentLeft(why){
+ if(!net.started)return;net.started=false;clearInterval(net.hb);
+ showOv(`${OPP} ${why||"left the game"}.`,"click to return to the menu",()=>location.reload());
+}
+function setupConn(c,role){
+ net.conn=c;net.role=role;net.last=Date.now();
+ c.on("data",onMsg);c.on("close",()=>opponentLeft());c.on("error",()=>{});
+}
+function beginPvp(name){
+ net.started=true;OPP=name;mode="pvp";
+ clearInterval(net.hb);net.hb=setInterval(()=>{send({t:"ping"});if(Date.now()-net.last>90000)opponentLeft("lost connection")},5000);
+ enterGame(`Matched with ${OPP}! Press DEAL when you're ready.`);
+ $("#st").className=live?"":"bad";$("#st").textContent=`Playing against ${OPP} (peer-to-peer). Both players press DEAL to start each round.`;
+}
+// matchmaking: the first player claims a well-known lobby id and waits; the next player finds it taken, joins it and is handed the first player's game id
+function setWait(t){$("#mwait").textContent=t}
+function netCleanup(){net.gen++;["gp","lb"].forEach(k=>{try{net[k]&&net[k].destroy()}catch(e){}net[k]=null});if(net.conn&&!net.started){try{net.conn.close()}catch(e){}}net.conn=null}
+function findMatch(){
+ if(typeof Peer==="undefined"){setWait("Couldn't load the multiplayer library. Check your connection and reload.");return}
+ netCleanup();const gen=net.gen;const alive=()=>gen===net.gen&&!net.conn;
+ let hostTimer=null,gp;
+ const restart=ms=>setTimeout(()=>{if(gen===net.gen&&!net.conn)findMatch()},ms);
+ try{gp=new Peer()}catch(e){setWait("Multiplayer isn't available here.");return}
+ net.gp=gp;
+ gp.on("connection",c=>{if(net.conn){c.close();return}clearTimeout(hostTimer);setupConn(c,"host");try{net.lb&&net.lb.destroy()}catch(e){}net.lb=null});
+ gp.on("error",e=>{if(!alive())return;if(e.type==="peer-unavailable")retryJoin();else{setWait("Connection problem, retrying…");restart(3000)}});
+ gp.on("open",()=>{if(alive())claimLobby()});
+ let retryT=null;const retryJoin=()=>{clearTimeout(retryT);retryT=setTimeout(()=>{if(alive()){try{net.lb&&net.lb.destroy()}catch(e){}net.lb=null;claimLobby()}},1000+Math.random()*1500)};
+ function claimLobby(){
+  const lb=new Peer(LOBBY);net.lb=lb;let matched=false;
+  lb.on("open",()=>{if(alive())setWait("Waiting for another player to join…")});
+  lb.on("connection",c=>{c.on("data",d=>{
+    if(!d||d.t!=="join")return;
+    if(matched){c.send({t:"busy"});return}
+    matched=true;c.send({t:"go",id:gp.id});
+    setTimeout(()=>{try{lb.destroy()}catch(e){}if(net.lb===lb)net.lb=null},800);
+    hostTimer=setTimeout(()=>{if(alive())claimLobby()},15000)})});
+  lb.on("error",e=>{if(!alive())return;try{lb.destroy()}catch(x){}if(net.lb===lb)net.lb=null;
+   if(e.type==="unavailable-id")joinLobby();else{setWait("Connection problem, retrying…");restart(3000)}});
+ }
+ function joinLobby(){
+  setWait("Found a player, connecting…");
+  const c=gp.connect(LOBBY,{reliable:true});let done=false;
+  const to=setTimeout(()=>{if(!done){done=true;try{c.close()}catch(e){}retryJoin()}},7000);
+  c.on("open",()=>c.send({t:"join"}));
+  c.on("data",d=>{if(done||!d)return;
+   if(d.t==="go"){done=true;clearTimeout(to);try{c.close()}catch(e){}connectHost(d.id)}
+   else if(d.t==="busy"){done=true;clearTimeout(to);try{c.close()}catch(e){}retryJoin()}});
+ }
+ function connectHost(id){
+  const c=gp.connect(id,{reliable:true});
+  const to=setTimeout(()=>{if(alive()){try{c.close()}catch(e){}retryJoin()}},9000);
+  c.on("open",()=>{if(!alive()){c.close();return}clearTimeout(to);setupConn(c,"guest");c.send({t:"hello",name:myName})});
+ }
+}
+
+// ---- menu + entering the table
+function enterGame(msg){
+ $("#menu").classList.add("gone");
+ $("#dname").textContent=OPP;$("#dimg").alt=OPP;$("#dlbl").textContent=OPP+"'s hand";
+ say(msg);$("#go").disabled=false;
+}
+const scr=id=>document.querySelectorAll(".mscr").forEach(e=>e.hidden=e.id!==id);
+$("#mBot").onclick=()=>{sfxClick();startMusic();mode="bot";OPP="Dealer";enterGame("Welcome! Press DEAL to start.")};
+$("#mPvp").onclick=()=>{sfxClick();startMusic();scr("m-name");$("#mname").focus()};
+$("#mBack1").onclick=()=>{sfxClick();scr("m-main")};
+const goFind=()=>{myName=clean($("#mname").value);
+ if(!$("#mname").value.trim()){$("#mname").focus();$("#mname").placeholder="Please type a name!";return}
+ sfxClick();scr("m-wait");setWait("Connecting…");findMatch()};
+$("#mFind").onclick=goFind;$("#mname").onkeydown=e=>{if(e.key==="Enter")goFind()};
+$("#mCancel").onclick=()=>{sfxClick();netCleanup();scr("m-main")};
 $("#go").onclick=async()=>{
  sfxClick();startMusic();
  if(phase==="busy")return;
- if(phase!=="hold"){ // DEAL
-  phase="busy";$("#go").disabled=true;$("#table").classList.remove("done");
-  if(coins<bet){coins=100;bet=Math.min(bet,5);$("#bet").textContent=bet;say("Out of coins! Fresh stack on the house.")}
-  coins-=bet;$("#coins").textContent=coins;$("#win").textContent=0;$("#pn").textContent=$("#dn").textContent="";
-  [...pEls,...dEls].forEach(e=>{e.classList.remove("up","hold","dis","on");e.style.translate="";e.style.opacity=""});
-  deck=levels.slice();for(let i=deck.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[deck[i],deck[j]]=[deck[j],deck[i]]}
-  const ids=new Set([...forcedList.p,...forcedList.d].map(c=>c.id));deck=deck.filter(c=>!ids.has(c.id));
-  const build=fl=>{const h=deck.splice(0,5),slots=[0,1,2,3,4].sort(()=>Math.random()-.5);fl.slice(0,5).forEach((c,i)=>{h[slots[i]]={...c}});return h};
-  hand=build(forcedList.p);dhand=build(forcedList.d);
-  if(forcedList.p.length||forcedList.d.length){forcedList={p:[],d:[]};["#admst","#admst2"].forEach(x=>$(x).textContent="Used! Enter numbers to queue the next game.");["#adm","#adm2"].forEach(x=>$(x).value="")}
-  held=[0,0,0,0,0].map(()=>true);
-  say("Shuffling… loading the pictures!");
-  await Promise.all([...hand,...dhand].map(ensure));
-  dEls.forEach((e,i)=>fill(e,dhand[i]));
-  await Promise.all(pEls.map((e,i)=>flip(e,hand[i],i*140)));
-  await sleep(500);if(hand.some(c=>c.position===1)){await sleep(1100);await showOv()}phase="hold";paint();$("#pn").textContent=evalHand(hand).txt;
-  $("#go").textContent="DRAW";$("#go").disabled=false;say("All cards are held. Tap any card you want to DISCARD, then DRAW!");
- }else{ // DRAW + showdown
-  phase="busy";$("#go").disabled=true;pEls.forEach(e=>e.classList.remove("hold","dis","on"));
-  const rep=[];for(let i=0;i<5;i++)if(!held[i])rep.push(i);if(!rep.length)say("Standing pat!");
-  const had1=hand.some(c=>c.position===1);
-  const nc=await Promise.all(rep.map(draw1));
-  await Promise.all(rep.map((i,k)=>{hand[i]=nc[k];return replaceCard(pEls[i],nc[k],k*170,true,"0 170%")}));
-  const me=evalHand(hand);$("#pn").textContent=me.txt;
-  if(!had1&&hand.some(c=>c.position===1)){await sleep(1100);await showOv()}
-  const pA=hand.filter(c=>c.position===1).length;
-  const dd=(say("Dealer's turn…"),await sleep(800),dealerPick(dhand));
-  if(dd.length){say(`Dealer discards ${dd.length} card${dd.length>1?"s":""}.`);
-   const nd=await Promise.all(dd.map(draw1));
-   await Promise.all(dd.map((i,k)=>{dhand[i]=nd[k];return replaceCard(dEls[i],nd[k],k*170,false,"0 -170%")}))}
-  else{say("Dealer stands pat.");await sleep(700)}
-  await sleep(300);
-  say("Now let's see the dealer's cards…");await sleep(700);
-  await Promise.all(dEls.map((e,i)=>sleep(i*220).then(()=>{e.classList.add("up");dhand[i].position===1?sfxApex():sfxFlip()})));
-  const dl=evalHand(dhand);$("#dn").textContent=dl.txt;await sleep(700);
-  const dA=dhand.filter(c=>c.position===1).length;
-  const r=(pA||dA)?Math.sign(pA-dA):cmp(me.score,dl.score);let w=0;
-  if(r>0){sfxWin();w=Math.max(bet,Math.round(bet*me.mult));
-   say(pA?(dA?`More #1s than the dealer! You got ${w} coins!`:`Top #1! You got ${w} coins!`):`${me.name}! You got ${w} coins!`)}
-  else if(r===0){w=bet;say(pA?"You both have the top #1: it's a draw! Bet returned.":"A tie! Your bet is returned.")}
-  else{sfxLose();say(dA?"The dealer has the top #1! Dealer wins.":"Dealer wins this one. Deal again?")}
-  coins+=w;$("#table").classList.add("done");$("#coins").textContent=coins;$("#win").textContent=w;
-  phase="idle";$("#go").textContent="DEAL";$("#go").disabled=false;
- }
+ if(phase!=="hold"){mode==="bot"?await botDeal():pvpReady()}
+ else{mode==="bot"?await botDraw():await pvpDraw()}
 };
 mk($("#drow"),dEls,false);mk($("#prow"),pEls,true);load();

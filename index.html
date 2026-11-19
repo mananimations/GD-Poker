@@ -3,10 +3,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Demon Picture Poker</title>
 <link rel="stylesheet" href="style.css"></head><body>
+<div id="menu">
+ <div id="mbox">
+  <h1>★ DEMON PICTURE POKER ★</h1>
+  <div id="m-main" class="mscr">
+   <p>Choose how you want to play</p>
+   <button class="btn big" id="mBot" disabled>🤖 PLAY VS BOT</button>
+   <button class="btn big alt" id="mPvp" disabled>👥 PLAY VS PLAYER</button>
+   <div id="mload">Loading demons…</div>
+  </div>
+  <div id="m-name" class="mscr" hidden>
+   <p>Type your name</p>
+   <input id="mname" type="text" maxlength="14" placeholder="Your name" autocomplete="off">
+   <button class="btn big" id="mFind">FIND A MATCH</button>
+   <button class="link" id="mBack1">← back</button>
+  </div>
+  <div id="m-wait" class="mscr" hidden>
+   <p id="mwait">Waiting for another player to join…</p>
+   <div class="dots"><i></i><i></i><i></i></div>
+   <small>Ask a friend to open this page and choose PLAY VS PLAYER.</small>
+   <button class="link" id="mCancel">cancel</button>
+  </div>
+ </div>
+</div>
 <div id="wrap"><aside id="bar"><h2>RARITY</h2><div id="barrows"></div></aside><div id="ds"><h1>★ DEMON PICTURE POKER ★</h1>
 <div id="table">
- <div id="dealer"><img alt="Shopkeeper dealer" src="assets/dealer.png"><div id="say">Loading demons…</div></div>
- <div class="lbl">DEALER'S HAND</div><div class="row" id="drow"></div><div class="hn" id="dn"></div>
+ <div id="dealer"><div id="av"><img id="dimg" alt="Dealer" src="assets/dealer.png"><div id="dname">Dealer</div></div><div id="say">Loading demons…</div></div>
+ <div class="lbl" id="dlbl">DEALER'S HAND</div><div class="row" id="drow"></div><div class="hn" id="dn"></div>
  <div class="lbl">YOUR HAND</div><div class="row" id="prow"></div><div class="hn" id="pn"></div>
 </div>
 <div id="hud">
@@ -15,24 +38,25 @@
  <div class="box">WIN <b id="win">0</b></div>
  <div class="box snd"><button id="snd" title="Sound effects">🔊</button><button id="mus" title="Music">🎵</button></div>
  <button class="btn" id="go" disabled>DEAL</button>
+ <button class="btn sm" id="leave" title="Back to menu">MENU</button>
 </div>
-<div id="ov"><div id="ovb"><p>You got the top #1! This card lets you instantly win the game!</p><small>click to continue</small></div></div><div id="ytp"></div><div id="st"></div></div>
+<div id="ov"><div id="ovb"><p></p><small>click to continue</small></div></div><div id="ytp"></div><div id="st"></div></div>
 <div id="side"><aside id="rules">
  <h2>HOW TO PLAY</h2>
  <ol><li>Set your bet (1–10 coins) and press <b>DEAL</b>.</li>
  <li>Your five cards flip up and are all <b>held</b>. Tap any card you want to <b>discard</b>.</li>
  <li>Press <b>DRAW</b>: discards slide away and fresh cards slide in.</li>
- <li>The dealer takes his turn, then flips his hand.</li>
- <li>Beat his hand to win. A tie returns your bet.</li></ol>
+ <li>Your opponent (the dealer bot, or the other player) draws too, then both hands flip.</li>
+ <li>Beat their hand to win. A tie returns your bet.</li></ol>
  <h2>THE CARDS</h2>
  <p>Every card is a real level from the Extreme Demon List. The <b>#number</b> is its list position, and the coloured tag is its rarity.</p>
  <h2>HANDS</h2>
  <p>Cards that share a rarity make a hand, just like Luigi's picture poker. The bigger the match, the more it pays. Winnings = your bet × the multiplier:</p>
  <div id="pay"></div>
- <p style="margin-top:6px">If you and the dealer have the same kind of hand, the rarer cards win (see the rarity bar on the left).</p>
+ <p style="margin-top:6px">If you and your opponent have the same kind of hand, the rarer cards win (see the rarity bar on the left).</p>
  <h2>THE #1 CARD</h2>
  <p>The Apex card (#1) wins you the game. Whoever holds more #1 cards wins, and if you both hold the same number it's a draw. You can still discard it if you want to.</p>
 </aside>
-<aside id="admin"><h2>ADMIN</h2><div>Guarantee a card next game (list #):</div><div style="margin-top:6px"><input id="adm" type="text" placeholder="e.g. 1 or 1,1"> <button id="admset">SET</button></div><div id="admst">Empty = random.</div></aside>
-<aside id="admin2"><h2>ADMIN: DEALER</h2><div>Choose the dealer's card(s) next game (list #, comma for several):</div><div style="margin-top:6px"><input id="adm2" type="text" placeholder="e.g. 1"> <button id="admset2">SET</button></div><div id="admst2">Empty = random.</div></aside></div></div>
+</div></div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="script.js"></script></body></html>
