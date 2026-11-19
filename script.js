@@ -2,7 +2,7 @@
 // and add this page's address (e.g. https://you.github.io/picture-poker/) under OAuth2 > Redirects.
 const DISCORD_CLIENT_ID="1572850368642023424";
 // Global leaderboard storage: a Firebase Realtime Database URL (see README), e.g. "https://my-game-default-rtdb.firebaseio.com"
-const LEADERBOARD_DB="";
+const LEADERBOARD_DB="https://gd-poker-default-rtdb.firebaseio.com";
 const API="https://api.aredl.net/v2/api/aredl/levels";
 const TIERS=[
  {n:"Common",r:"1000+",c:"#9aa0a6",m:1},{n:"Uncommon",r:"750–999",c:"#4ade80",m:1.5},{n:"Rare",r:"500–749",c:"#38bdf8",m:2},
