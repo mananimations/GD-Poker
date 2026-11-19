@@ -34,6 +34,17 @@ Open `index.html` in a browser, or host it for free with GitHub Pages:
 - **Play vs Player:** type a name and you enter the lobby. If no rooms exist you are put into a new room and wait. If rooms exist you can join one or create your own, and a room can be locked with a password.
 - **Profile picture (optional):** pick one on the first screen. Your opponent sees it in place of the shopkeeper sprite. After choosing it you can drag and zoom it into the circle frame (use "adjust" to change it later). It is shrunk to 160px and stored only in your browser.
 
+## Discord login (optional)
+
+Players can log in with Discord so their Discord avatar is used as their profile picture automatically (they can still type any name, and can still upload a custom picture, which takes priority until removed).
+
+Setup (one time):
+1. Go to <https://discord.com/developers/applications> and create an application.
+2. Under **OAuth2 → Redirects**, add the exact address the game is hosted at, e.g. `https://<your-username>.github.io/<repo-name>/` (add the `.../index.html` version too if you link to it).
+3. Copy the **Client ID** and paste it into `DISCORD_CLIENT_ID` at the top of `script.js`.
+
+It uses Discord's browser-only OAuth2 flow with the `identify` scope. The access token is used once to read the username and avatar, and is never stored. Only the name and a 160px avatar are kept in the browser. It won't work when `index.html` is opened as a local file.
+
 ## Notes
 
 - Multiplayer is peer-to-peer using [PeerJS](https://peerjs.com) (loaded from unpkg) and its free public signaling server, so no backend of your own is needed. If a network blocks WebRTC, matches may not connect.

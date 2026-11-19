@@ -1,3 +1,6 @@
+// Discord login: create an app at https://discord.com/developers/applications, copy its Client ID here,
+// and add this page's address (e.g. https://you.github.io/picture-poker/) under OAuth2 > Redirects.
+const DISCORD_CLIENT_ID="1572850368642023424";
 const API="https://api.aredl.net/v2/api/aredl/levels";
 const TIERS=[
  {n:"Common",r:"1000+",c:"#9aa0a6",m:1},{n:"Uncommon",r:"750–999",c:"#4ade80",m:1.5},{n:"Rare",r:"500–749",c:"#38bdf8",m:2},
@@ -453,7 +456,10 @@ function enterGame(msg,pic,chr){
  say(msg);$("#go").disabled=false;
 }
 // optional profile picture (kept in this browser, shrunk to 160px)
-function setPic(p){myPic=p;const e=$("#pfimg");e.style.backgroundImage=p?`url("${p}")`:"";e.textContent=p?"":"?";$("#pfclear").hidden=!p;$("#pfedit").hidden=!p||!store.get("dpp_picsrc")}
+let customPic=null,dcPic=null,dcUser=null;
+function refreshPic(){myPic=customPic||dcPic;const e=$("#pfimg");e.style.backgroundImage=myPic?`url("${myPic}")`:"";e.textContent=myPic?"":"?";
+ $("#pfclear").hidden=!customPic;$("#pfedit").hidden=!customPic||!store.get("dpp_picsrc");$("#pf").classList.toggle("dc",!!dcPic&&!customPic)}
+function setPic(p){customPic=p;refreshPic()}
 {const saved=store.get("dpp_pic");if(goodPic(saved))setPic(saved)}
 // picture editor: drag to position, slider / wheel to zoom, circle shows exactly what opponents will see
 const CV=$("#cropcv"),cx2=CV.getContext("2d"),CS=260,CR=120;
@@ -497,6 +503,46 @@ $("#cropok").onclick=()=>{
  setPic(p);scr("m-main");
 };
 $("#pfclear").onclick=()=>{sfxClick();setPic(null);["dpp_pic","dpp_picsrc","dpp_crop"].forEach(store.del)};
+// ---- Discord login (OAuth2 implicit flow, "identify" scope only; the token is used once and never stored)
+const dcErr=t=>{$("#dcerr").textContent=t||""};
+function dcShow(){
+ const u=dcUser;$("#dcin").hidden=!!u;$("#dcuser").hidden=!u;
+ if(u){$("#dcname").textContent=u.name;$("#dcav").src=u.avatar;
+  if(!$("#mname").value)$("#mname").value=clean(store.get("dpp_name")||u.name)}
+ refreshPic();
+}
+function dcApply(u){ // u = {id,name,avatar(url),pic(data url)}
+ dcUser=u;dcPic=goodPic(u.pic);dcShow();
+}
+function avatarData(url){return new Promise((res,rej)=>{const im=new Image();im.crossOrigin="anonymous";
+ im.onload=()=>{const o=document.createElement("canvas");o.width=o.height=160;o.getContext("2d").drawImage(im,0,0,160,160);try{res(o.toDataURL("image/jpeg",.88))}catch(e){rej(e)}};
+ im.onerror=()=>rej(new Error("avatar"));im.src=url})}
+async function dcFinish(token){
+ try{
+  const r=await fetch("https://discord.com/api/users/@me",{headers:{Authorization:"Bearer "+token}});
+  if(!r.ok)throw new Error("HTTP "+r.status);const j=await r.json();
+  const id=String(j.id),av=j.avatar?`https://cdn.discordapp.com/avatars/${id}/${j.avatar}.png?size=128`:`https://cdn.discordapp.com/embed/avatars/${Number((BigInt(id)>>22n)%6n)}.png`;
+  let pic=null;try{pic=await avatarData(av)}catch(e){}
+  const u={id,name:clean(j.global_name||j.username),avatar:av,pic};
+  store.set("dpp_dc",JSON.stringify(u));dcApply(u);
+ }catch(e){dcErr("Discord login failed: "+(e.message||e))}
+}
+$("#dcin").onclick=()=>{sfxClick();
+ if(!DISCORD_CLIENT_ID){dcErr("Discord login isn't set up yet: add your Client ID at the top of script.js.");return}
+ if(location.protocol==="file:"){dcErr("Discord login needs the game to be hosted (not opened as a file).");return}
+ const st=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,"0")).join("");
+ try{sessionStorage.setItem("dpp_state",st)}catch(e){}
+ location.href="https://discord.com/oauth2/authorize?"+new URLSearchParams({client_id:DISCORD_CLIENT_ID,response_type:"token",scope:"identify",state:st,redirect_uri:location.origin+location.pathname,prompt:"none"})};
+$("#dcout").onclick=()=>{sfxClick();dcUser=dcPic=null;store.del("dpp_dc");store.del("dpp_name");$("#dcin").hidden=false;$("#dcuser").hidden=true;$("#mname").value="";refreshPic()};
+{ // coming back from Discord?
+ const hp=new URLSearchParams(location.hash.slice(1)),tok=hp.get("access_token"),err=hp.get("error_description")||hp.get("error");
+ if(tok||err){history.replaceState(null,"",location.pathname+location.search);
+  let want=null;try{want=sessionStorage.getItem("dpp_state");sessionStorage.removeItem("dpp_state")}catch(e){}
+  if(err)dcErr(err==="access_denied"?"Discord login was cancelled.":"Discord login failed: "+err);
+  else if(!want||hp.get("state")!==want)dcErr("Discord login failed: security check didn't match. Try again.");
+  else dcFinish(tok)}
+ else{try{const u=JSON.parse(store.get("dpp_dc"));if(u&&u.id&&u.name)dcApply({id:String(u.id),name:clean(u.name),avatar:/^https:\/\/cdn\.discordapp\.com\//.test(u.avatar)?u.avatar:"",pic:u.pic})}catch(e){}}
+}
 // the bot's dealer is a random character each time you start a bot game
 const CHARS=[{n:"Shopkeeper",i:null},{n:"The Wizard Grandmaster",i:"assets/chars/wizard.png"},{n:"The Biger F",i:"assets/chars/biger-f.png"},{n:"Npesta",i:"assets/chars/npesta.png"}];
 $("#mBot").onclick=()=>{sfxClick();startMusic();scr("m-diff")};
@@ -509,7 +555,7 @@ $("#mPvp").onclick=()=>{sfxClick();startMusic();scr("m-name");$("#mname").focus(
 $("#mBack1").onclick=()=>{sfxClick();scr("m-main")};
 const goLobby=async()=>{
  if(!$("#mname").value.trim()){$("#mname").focus();$("#mname").placeholder="Please type a name!";return}
- myName=clean($("#mname").value);sfxClick();lobErr("");scr("m-wait");$("#wroom").hidden=true;$("#mwait").textContent="Loading the demon list…";await ready;$("#mwait").textContent="Connecting to the lobby…";if($("#m-wait").hidden)return;startLobby()};
+ myName=clean($("#mname").value);if(dcUser)store.set("dpp_name",myName);sfxClick();lobErr("");scr("m-wait");$("#wroom").hidden=true;$("#mwait").textContent="Loading the demon list…";await ready;$("#mwait").textContent="Connecting to the lobby…";if($("#m-wait").hidden)return;startLobby()};
 $("#mFind").onclick=goLobby;$("#mname").onkeydown=e=>{if(e.key==="Enter")goLobby()};
 $("#mBack2").onclick=()=>{sfxClick();netCleanup();scr("m-main")};
 $("#mCancel").onclick=()=>{sfxClick();
