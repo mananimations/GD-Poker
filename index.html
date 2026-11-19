@@ -38,19 +38,20 @@
    <button class="link" id="banout">log out</button>
   </div>
   <div id="m-main" class="mscr" hidden>
+   <div class="mstack">
    <div class="mcard" id="macct">
-    <section id="accttop">
-     <h3>ACCOUNT</h3>
-     <div id="dcuser"><img id="dcav" alt=""><b id="dcname"></b></div>
-     <div id="stats"><div><small>RANK</small><b id="myrank">—</b></div><div><small>WINS</small><b id="mywins">0</b></div></div>
-     <button class="btn sm go" id="setopen">⚙ ACCOUNT SETTINGS</button>
-     <button class="link" id="dcout">log out</button>
-    </section>
-    <section id="cardfeed" aria-live="polite">
-     <h3>ETHEREAL / APEX AWARDS</h3>
-     <div id="feedempty">No Ethereal or Apex cards awarded yet.</div>
-     <div id="feeditem" hidden><b id="feedwho"></b><div id="feedcard" class="feed-card"></div><small id="feedmeta"></small></div>
-    </section>
+    <h3>ACCOUNT</h3>
+    <div id="dcuser"><img id="dcav" alt=""><b id="dcname"></b></div>
+    <div id="stats"><div><small>RANK</small><b id="myrank">—</b></div><div><small>WINS</small><b id="mywins">0</b></div></div>
+    <button class="btn sm go" id="setopen">⚙ ACCOUNT SETTINGS</button>
+    <button class="link" id="dcout">log out</button>
+   </div>
+   <div class="mcard" id="mcardday">
+    <h3>★ CARD OF THE DAY ★</h3>
+    <div id="dailycard" class="card up" aria-label="Global card of the day"><div class="in"><div class="face back"><img src="assets/demon.png" alt="" draggable="false"></div><div class="face front"></div></div></div>
+    <b id="dailyname">Choosing today's card…</b>
+    <small id="dailydate">Changes daily at 12:00 AM Eastern</small>
+   </div>
    </div>
    <div class="mcard" id="mplay">
     <h3>GAME MODE</h3>
