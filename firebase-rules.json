@@ -1,0 +1,56 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "players": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === 'PASTE_YOUR_ADMIN_UID_HERE'",
+      "$id": {
+        ".write": "$id.matches(/^[0-9]{5,25}$/) && !root.child('bans').child($id).exists()",
+        ".validate": "newData.hasChildren(['name'])",
+        "name": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "av": { ".validate": "newData.isString() && newData.val().matches(/^https:\\/\\/cdn\\.discordapp\\.com\\//)" },
+        "wins": { ".validate": "newData.isNumber() && ((newData.val() >= (data.exists() ? data.val() : 0) && newData.val() <= (data.exists() ? data.val() : 0) + 5) || (auth != null && auth.uid === 'PASTE_YOUR_ADMIN_UID_HERE' && newData.val() >= 0))" },
+        "hidden": { ".validate": "newData.isBoolean()" },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "bans": {
+      ".read": "auth != null && auth.uid === 'PASTE_YOUR_ADMIN_UID_HERE'",
+      ".write": "auth != null && auth.uid === 'PASTE_YOUR_ADMIN_UID_HERE'",
+      "$id": { ".read": true }
+    },
+
+    "config": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === 'PASTE_YOUR_ADMIN_UID_HERE'"
+    },
+
+    "grants": {
+      ".read": "auth != null && auth.uid === 'PASTE_YOUR_ADMIN_UID_HERE'",
+      ".write": "auth != null && auth.uid === 'PASTE_YOUR_ADMIN_UID_HERE'",
+      "$uid": {
+        ".read": true,
+        "$gid": {
+          "used": { ".write": "newData.val() === true", ".validate": "newData.isBoolean()" }
+        }
+      }
+    },
+
+    "live": {
+      ".read": "auth != null && auth.uid === 'PASTE_YOUR_ADMIN_UID_HERE'",
+      ".write": "auth != null && auth.uid === 'PASTE_YOUR_ADMIN_UID_HERE'",
+      "$mid": {
+        ".write": "$mid.matches(/^[A-Za-z0-9_-]{6,40}$/)",
+        ".validate": "newData.hasChildren(['mode', 'stage'])"
+      }
+    },
+
+    "adminlog": {
+      ".read": "auth != null && auth.uid === 'PASTE_YOUR_ADMIN_UID_HERE'",
+      ".write": "auth != null && auth.uid === 'PASTE_YOUR_ADMIN_UID_HERE'"
+    }
+  }
+}

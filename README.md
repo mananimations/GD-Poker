@@ -18,6 +18,8 @@ Open `index.html` in a browser, or host it for free with GitHub Pages:
 | `index.html` | Page markup |
 | `style.css` | Styles |
 | `script.js` | Game logic |
+| `admin.html` | Private admin panel (see below) |
+| `firebase-rules.json` | Database rules to paste into Firebase |
 | `assets/dealer.png` | Dealer image |
 | `assets/demon.png` | Demon icon on the card backs |
 | `assets/bgm.mp3` | Background music |
@@ -58,29 +60,32 @@ On the game mode screen, **Account settings** opens a settings page with:
 The leaderboard counts **wins against other players only** (bot games and draws never count; playing yourself in two tabs doesn't count either). Each win is recorded by the winner's browser. It is stored in a free Firebase Realtime Database:
 
 1. Create a project at <https://console.firebase.google.com>, then **Build → Realtime Database → Create database**.
-2. Open the **Rules** tab and paste:
-
-```json
-{
-  "rules": {
-    ".read": true,
-    "players": {
-      "$id": {
-        ".write": "$id.matches(/^[0-9]{5,25}$/)",
-        ".validate": "newData.hasChildren(['name'])",
-        "name": { ".validate": "newData.isString() && newData.val().length <= 40" },
-        "av": { ".validate": "newData.isString() && newData.val().matches(/^https:\\/\\/cdn\\.discordapp\\.com\\//)" },
-        "wins": { ".validate": "newData.isNumber() && newData.val() >= (data.exists() ? data.val() : 0) && newData.val() <= (data.exists() ? data.val() : 0) + 1" },
-        "hidden": { ".validate": "newData.isBoolean()" },
-        "$other": { ".validate": false }
-      }
-    }
-  }
-}
-```
+2. Open the **Rules** tab and paste the contents of [`firebase-rules.json`](firebase-rules.json) (see *Admin panel* below for the one placeholder to fill in), then Publish.
 3. Copy the database URL (like `https://your-project-default-rtdb.firebaseio.com`) into `LEADERBOARD_DB` at the top of `script.js`.
 
 Until it is set, the leaderboard panel says it isn't set up. The rules stop a player from jumping their wins by more than 1 per write, but because the game has no server of its own, a determined cheater could still send repeated requests. Treat the board as friendly competition.
+
+## Admin panel (`admin.html`)
+
+Open `https://<your-site>/admin.html`. Nothing links to it, it asks for a sign-in, and the database rules only accept your admin account, so visitors who find the page can't do anything with it.
+
+**One-time setup**
+1. Firebase console → **Build → Authentication → Get started** → enable **Email/Password**. On the **Users** tab, **Add user** (your email + a long password) and copy its **User UID**.
+2. **Realtime Database → Rules**: paste `firebase-rules.json`, replace every `PASTE_YOUR_ADMIN_UID_HERE` with that UID, Publish.
+3. **Project settings → General → Web API key**: paste it into the admin sign-in form (kept only in your browser).
+
+**What it does**
+- **Live games**: every game in progress (PvP and vs-bot), both hands, who is holding/discarding, bet, result and the PvP chat, updating every 2 seconds. Give cards to or ban either player from there.
+- **Card grants**: queue up to 5 specific cards for a player. Their next dealt round starts with them (taken out of the deck, so no duplicates). One grant is used per round, oldest first. Works in bot and PvP games.
+- **Players**: set any player's wins, zero them, remove them from the leaderboard, or reset the whole leaderboard (a JSON backup downloads first).
+- **Bans**: ban a Discord account by ID or from any list. Banned accounts see a "banned" screen after logging in, can't start games, can't join rooms, are removed from a game within a minute, and the database rules reject their leaderboard writes.
+- **Power hours**: a timed bonus with a banner for every player: #1-card chance, same-rarity match chance, Epic+ card boost, payout multiplier and leaderboard-win multiplier. Players pick it up within 30 seconds. Presets included; extend or stop any time.
+- **Log**: everything you do in the panel is recorded.
+
+**Good to know**
+- The game is static and peer-to-peer, so the game itself (not a server) enforces bans, grants and power hours. The database rules stop banned accounts and strangers from touching admin data, but someone running a modified copy of `script.js` could still bypass the in-game parts. Fine for a friendly game; a real server would be needed to prevent it.
+- Games publish their table to the database so you can watch them. The login screen tells players moderators may watch.
+- Discord IDs aren't verified by the backend (they weren't before either), so treat bans as "stops normal players".
 
 ## Notes
 

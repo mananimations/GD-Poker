@@ -79,7 +79,7 @@ async function ensure(c){
 function mk(host,arr,click){
  for(let i=0;i<5;i++){const e=document.createElement("div");e.className="card";
   e.innerHTML='<div class="in"><div class="face back"><img src="assets/demon.png" alt="" draggable="false"></div><div class="face front"></div></div>';
-  if(click)e.onclick=()=>{if(phase!=="hold")return;sfxClick();held[i]=!held[i];paint()};
+  if(click)e.onclick=()=>{if(phase!=="hold")return;sfxClick();held[i]=!held[i];paint();specHolds()};
   host.appendChild(e);arr.push(e)}
 }
 function fill(e,c){
@@ -178,7 +178,7 @@ $("#bp").onclick=()=>{sfxClick();if(!lockBet()&&bet<Math.min(10,coins))$("#bet")
 
 // Deal my five cards and flip them up (shared by bot + player modes)
 async function startRound(h){
- phase="busy";$("#go").disabled=true;$("#table").classList.remove("done");
+ phase="busy";rstage="dealing";$("#go").disabled=true;$("#table").classList.remove("done");
  if(coins<bet){coins=100;bet=Math.min(bet,5);$("#bet").textContent=bet;say("Out of coins! Fresh stack on the house.")}
  coins-=bet;$("#coins").textContent=coins;$("#win").textContent=0;$("#pn").textContent=$("#dn").textContent="";
  [...pEls,...dEls].forEach(e=>{e.classList.remove("up","hold","dis","on");e.style.translate="";e.style.opacity=""});
@@ -189,6 +189,7 @@ async function startRound(h){
  await Promise.all(pEls.map((e,i)=>flip(e,hand[i],i*140)));
  await sleep(500);if(hand.some(c=>c.position===1)){await sleep(1100);await showOv(APEXMSG)}
  phase="hold";paint();$("#pn").textContent=evalHand(hand).txt;
+ rstage="holding";specPush();
  $("#go").textContent="DRAW";$("#go").disabled=false;say("All cards are held. Tap any card you want to DISCARD, then DRAW!");
 }
 async function applyMyDraw(rep,nc){
@@ -196,6 +197,7 @@ async function applyMyDraw(rep,nc){
  await Promise.all(nc.map(ensure));
  await Promise.all(rep.map((i,k)=>{hand[i]=nc[k];return replaceCard(pEls[i],nc[k],k*170,true,"0 170%")}));
  $("#pn").textContent=evalHand(hand).txt;
+ specPush();
  if(!had1&&hand.some(c=>c.position===1)){await sleep(1100);await showOv(APEXMSG)}
 }
 // Opponent's face-down cards slide out and fresh ones slide in
@@ -213,28 +215,31 @@ async function showdown(oh){
  const dl=evalHand(oh),me=evalHand(hand);$("#dn").textContent=dl.txt;await sleep(700);
  const pA=hand.filter(c=>c.position===1).length,dA=oh.filter(c=>c.position===1).length;
  const r=(pA||dA)?Math.sign(pA-dA):cmp(me.score,dl.score);let w=0;
- if(r>0){sfxWin();w=Math.max(bet,Math.round(bet*me.mult));if(mode==="pvp")recordWin();
+ if(r>0){sfxWin();w=Math.round(Math.max(bet,Math.round(bet*me.mult))*Math.max(1,pwE("payMult")));if(mode==="pvp")recordWin();
   say(pA?(dA?`More #1s than ${OPP}! You got ${w} coins!`:`Top #1! You got ${w} coins!`):`${me.name}! You got ${w} coins!`)}
  else if(r===0){w=bet;say(pA?"You both have the top #1: it's a draw! Bet returned.":"A tie! Your bet is returned.")}
  else{sfxLose();say(dA?`${OPP} has the top #1! ${OPP} wins.`:`${OPP} wins this one. Deal again?`)}
  coins+=w;$("#table").classList.add("done");$("#coins").textContent=coins;$("#win").textContent=w;
  phase="idle";$("#go").textContent="DEAL";$("#go").disabled=false;
+ rstage="result";lastRes=$("#say").textContent;specPush();
 }
 const repIdx=()=>[0,1,2,3,4].filter(i=>!held[i]);
-const lockDraw=()=>{phase="busy";$("#go").disabled=true;pEls.forEach(e=>e.classList.remove("hold","dis","on"))};
+const lockDraw=()=>{phase="busy";rstage="drawing";$("#go").disabled=true;pEls.forEach(e=>e.classList.remove("hold","dis","on"))};
 
 // ---- vs BOT
 async function botDeal(){
  phase="busy";$("#go").disabled=true;
- deck=shuffle(levels.slice());dhand=deck.splice(5,5);
- await startRound(deck.splice(0,5));
+ deck=shuffle(levels.slice());
+ const[mine,theirs]=await dealRig(myId,null,true,false); // admin card grants + power hour only affect the player, never the bot
+ dhand=theirs;
+ await startRound(mine);
 }
 async function botDraw(){
  lockDraw();const rep=repIdx();if(!rep.length)say("Standing pat!");
- await applyMyDraw(rep,rep.map(()=>deck.shift()));
+ await applyMyDraw(rep,drawNew(hand,rep,true));
  say(`${OPP}'s turn…`);await sleep(diff==="mogger"?200:800);
  const dd=botPick(dhand,hand,deck);
- dd.forEach(i=>{dhand[i]=deck.shift()});
+ dd.forEach(i=>{dhand[i]=deck.shift()});specPush();
  await oppDiscard(dd);
  await showdown(dhand);
 }
@@ -249,15 +254,15 @@ function pvpReady(){
  phase="busy";$("#go").disabled=true;say(`Waiting for ${OPP} to press DEAL…`);
  if(net.role==="host"){hostReady=true;hostMaybeDeal()}else send({t:"ready"});
 }
-function hostMaybeDeal(){
+async function hostMaybeDeal(){
  if(!(hostReady&&guestReady))return;hostReady=guestReady=false;
- deck=shuffle(levels.slice());const h=deck.splice(0,5);ghand=deck.splice(0,5);
+ deck=shuffle(levels.slice());const[h,g]=await dealRig(myId,oppId,true,true);ghand=g;guestHeld=[true,true,true,true,true];
  resetSync();send({t:"deal",hand:ghand.map(pub)});startRound(h);
 }
 async function pvpDraw(){
  lockDraw();const rep=repIdx();if(!rep.length)say("Standing pat!");
  let nc;
- if(net.role==="host"){nc=rep.map(()=>deck.shift());send({t:"opdraw",idx:rep})}
+ if(net.role==="host"){nc=drawNew(hand,rep,true);send({t:"opdraw",idx:rep})}
  else nc=await new Promise(res=>{net.onCards=res;send({t:"draw",rep})});
  await applyMyDraw(rep,nc);meDrew=true;
  if(net.role==="host")hostMaybeReveal();
@@ -277,9 +282,10 @@ function onMsg(m){
   case"ready":if(net.role==="host"){guestReady=true;hostMaybeDeal()}break;
   case"deal":if(net.role==="guest"&&Array.isArray(m.hand)){resetSync();startRound(m.hand)}break;
   case"draw":if(net.role==="host"&&Array.isArray(m.rep)&&!guestDrew){
-    const rep=m.rep.filter(i=>Number.isInteger(i)&&i>=0&&i<5).slice(0,5),cs=rep.map(()=>deck.shift());
+    const rep=m.rep.filter(i=>Number.isInteger(i)&&i>=0&&i<5).slice(0,5),cs=drawNew(ghand,rep,true);
     rep.forEach((i,k)=>{ghand[i]=cs[k]});send({t:"cards",cards:cs.map(pub)});
-    guestDrew=true;oppDiscard(rep);hostMaybeReveal()}break;
+    guestDrew=true;oppDiscard(rep);specPush();hostMaybeReveal()}break;
+  case"holds":if(net.role==="host"&&Array.isArray(m.h)){guestHeld=m.h.slice(0,5).map(Boolean);specPush()}break;
   case"cards":if(net.onCards){const f=net.onCards;net.onCards=null;f(m.cards)}break;
   case"opdraw":oppDiscard(m.idx||[]);break;
   case"reveal":oppReveal=m.hand;if(meDrew)showdown(oppReveal);break;
@@ -296,6 +302,7 @@ function chatAdd(who,text,mine,sys){
  const log=$("#clog"),d=document.createElement("div");
  if(sys)d.className="sys";else{d.className=mine?"me":"";const b=document.createElement("b");b.textContent=who+": ";d.appendChild(b)}
  d.appendChild(document.createTextNode(text));log.appendChild(d);
+ if(!sys){specChat.push({w:String(who).slice(0,20),x:String(text).slice(0,120)});if(specChat.length>40)specChat.shift();specPush()}
  while(log.children.length>60)log.firstChild.remove();log.scrollTop=log.scrollHeight;
 }
 function popEmote(host,e){
@@ -395,11 +402,13 @@ function startLobby(){
 // someone wants into my room
 function onRoomConn(c){
  let done=false;
- c.on("data",m=>{
+ c.on("data",async m=>{
   if(done||!m||m.t!=="hello")return;done=true;
   const deny=why=>{try{c.send({t:"deny",why})}catch(e){}setTimeout(()=>{try{c.close()}catch(e){}},400)};
   if(net.conn||!net.room)return deny("full");
   if(net.room.pw&&m.pw!==net.room.pw)return deny("password");
+  if(await getBan(String(m.did||"").slice(0,30)))return deny("banned"); // banned accounts can't join anyone's room
+  if(net.conn||!net.room)return deny("full"); // somebody else got in while we were checking
   setupConn(c,"host");unregRoom();net.room=null;onMsg(m);
  });
 }
@@ -441,7 +450,7 @@ function joinRoom(r,pw){
  net.conn=c;net.role="guest";net.joinTo=setTimeout(()=>joinFail("Couldn't connect to that room."),9000);
  setupConn(c,"guest");
  c.on("open",()=>{net.connecting=null;c.send({t:"hello",name:myName,pic:myPic,did:myId,pw})});
- c.on("data",m=>{if(m&&m.t==="deny")joinFail(m.why==="password"?"Wrong password.":"That room is full or busy.")});
+ c.on("data",m=>{if(m&&m.t==="deny")joinFail(m.why==="password"?"Wrong password.":m.why==="banned"?"You can't join this game.":"That room is full or busy.")});
 }
 function joinFail(msg){
  clearTimeout(net.joinTo);if(net.started)return;
@@ -455,14 +464,14 @@ function enterGame(msg,pic,chr){
  $("#dname").textContent=OPP;$("#dimg").alt=OPP;$("#dlbl").textContent=OPP+"'s hand";
  const di=$("#dimg");di.src=pic||"assets/dealer.png";di.classList.toggle("custom",!!pic&&!chr);di.classList.toggle("char",!!chr);
  const mv=$("#myav");mv.hidden=!myPic;if(myPic)mv.src=myPic;
- say(msg);$("#go").disabled=false;
+ say(msg);$("#go").disabled=false;rstage="idle";specPush();
 }
 let dcPic=null,dcUser=null;
 // ---- Global leaderboard (wins against other players; bot games never count)
 const LB=LEADERBOARD_DB.replace(/\/+$/,"");let lbMe=null,lbBusy=false,lbHidden=false;
 const okAv=u=>typeof u==="string"&&/^https:\/\/cdn\.discordapp\.com\//.test(u);
-async function lbCall(path,method,body){
- const c=new AbortController(),t=setTimeout(()=>c.abort(),8000);
+async function lbCall(path,method,body,ms){
+ const c=new AbortController(),t=setTimeout(()=>c.abort(),ms||8000);
  try{const r=await fetch(LB+path,{method,signal:c.signal,body:body?JSON.stringify(body):undefined});if(!r.ok)throw new Error("HTTP "+r.status);return await r.json()}
  finally{clearTimeout(t)}
 }
@@ -504,10 +513,123 @@ async function lbStart(){ // once per page load: update my name/avatar on the bo
 }
 async function recordWin(){
  if(!LB||!dcUser||!oppId||oppId===myId)return; // no backend, or playing yourself in two tabs
- try{const b={name:dcUser.name,wins:{".sv":{increment:1}}};if(okAv(dcUser.avatar))b.av=dcUser.avatar;
+ try{const b={name:dcUser.name,wins:{".sv":{increment:Math.round(Math.max(1,pwE("winMult")))}}};if(okAv(dcUser.avatar))b.av=dcUser.avatar;
   await lbCall("/players/"+encodeURIComponent(myId)+".json","PATCH",b);lbRefresh()}catch(e){}
 }
 $("#lbref").onclick=()=>{sfxClick();if(!LB)return lbRefresh();lbStarted=true;lbRefresh()};
+
+// ================= ADMIN-CONTROLLED FEATURES (see admin.html) =================
+// The admin panel writes to the same Firebase database as the leaderboard:
+//   /bans/<discordId>          banned accounts
+//   /config/power              the active power hour
+//   /grants/<discordId>/<id>   cards queued for a player's next round
+//   /live/<matchId>            written by games so the admin can watch them (only the admin can read it)
+const fbp=(...a)=>"/"+a.map(x=>encodeURIComponent(x)).join("/")+".json";
+const rnd=a=>a[Math.random()*a.length|0],roll=p=>Math.random()*100<p,clamp=(v,a,b)=>Math.min(b,Math.max(a,+v||0));
+
+// ---- Bans: checked at login, every minute while playing, and by a room's host before letting someone in
+let banState="checking";
+async function getBan(id){
+ if(!LB||!id)return null;
+ try{const b=await lbCall(fbp("bans",id),"GET",null,5000);return b?(typeof b==="object"?b:{}):null}catch(e){return null}
+}
+function showBanned(b){banState="banned";$("#banwhy").textContent=b&&b.reason?"Reason: "+String(b.reason).slice(0,200):"";scr("m-banned")}
+$("#banout").onclick=()=>$("#dcout").click();
+setInterval(async()=>{if(!dcUser||banState==="banned")return;if(await getBan(myId)){sayBye();location.reload()}},60000);
+
+// ---- Power hours: a timed bonus for everybody, shown as a banner
+let power=null;
+const pwOn=()=>!!(power&&power.endsAt>Date.now());
+const pwE=k=>pwOn()?(+(power.effects&&power.effects[k])||0):0;
+async function pwFetch(){
+ if(!LB)return;
+ try{const p=await lbCall("/config/power.json","GET",null,5000);
+  if(p&&typeof p==="object"&&Number.isFinite(+p.endsAt)){const e=p.effects||{};
+   power={name:String(p.name||"Bonus").slice(0,30),endsAt:+p.endsAt,effects:{apexPct:clamp(e.apexPct,0,100),matchPct:clamp(e.matchPct,0,100),rarePct:clamp(e.rarePct,0,100),payMult:clamp(e.payMult,1,10),winMult:Math.round(clamp(e.winMult,1,5))}}}
+  else power=null}catch(e){}
+ pwPaint();
+}
+function pwPaint(){
+ const el=$("#pwr");if(!pwOn()){el.hidden=true;return}
+ const e=power.effects,o=[];
+ if(e.apexPct>0)o.push(`#1 card ${e.apexPct}% per hand`);if(e.matchPct>0)o.push(`matches +${e.matchPct}%`);if(e.rarePct>0)o.push(`rare cards +${e.rarePct}%`);
+ if(e.payMult>1)o.push(`payouts ×${e.payMult}`);if(e.winMult>1)o.push(`leaderboard wins ×${e.winMult}`);
+ const s=Math.max(0,Math.round((power.endsAt-Date.now())/1000));
+ el.hidden=false;el.textContent=`⚡ POWER HOUR: ${power.name}${o.length?" — "+o.join(" · "):""} — ${s/60|0}:${String(s%60).padStart(2,"0")} left`;
+}
+pwFetch();setInterval(pwFetch,30000);setInterval(pwPaint,1000);
+
+// Power hour card tweaks. h = the 5-card hand, free = the slots that may be changed. Cards are only ever swapped with the undealt deck, so there are never duplicates.
+function powerHand(h,free){
+ const back=c=>deck.splice(Math.random()*(deck.length+1)|0,0,c);
+ const pull=f=>{const i=deck.findIndex(f);return i<0?null:deck.splice(i,1)[0]};
+ const swap=(i,c)=>{back(h[i]);h[i]=c};
+ const rare=pwE("rarePct"),match=pwE("matchPct"),apex=pwE("apexPct");
+ if(rare)free.forEach(i=>{if(h[i].position>1&&roll(rare)){const c=pull(x=>x.position>1&&tierOf(x.position)>=3);if(c)swap(i,c)}}); // Epic or better
+ if(match&&roll(match)){ // grow the biggest group of same-rarity cards by one
+  const cnt={};h.forEach(c=>{const t=tierOf(c.position);cnt[t]=(cnt[t]||0)+1});
+  const groups=Object.entries(cnt).map(([t,n])=>[+t,n]).filter(g=>g[0]<7&&g[1]<4).sort((a,b)=>b[1]-a[1]||b[0]-a[0]);
+  for(const[t]of groups){
+   const slots=free.filter(i=>tierOf(h[i].position)!==t&&h[i].position!==1);if(!slots.length)continue;
+   const c=pull(x=>tierOf(x.position)===t&&x.position!==1);if(!c)continue;
+   swap(rnd(slots),c);break}
+ }
+ if(apex&&roll(apex)&&free.length&&!h.some(c=>c.position===1)){const c=pull(x=>x.position===1);if(c)swap(rnd(free),c)}
+}
+// New cards for a draw (power hour applies to the final hand; only the replaced slots can change)
+function drawNew(h,rep,boost){
+ const cs=rep.map(()=>deck.shift());
+ if(!boost||!pwOn()||!rep.length)return cs;
+ const fin=h.slice();rep.forEach((i,k)=>{fin[i]=cs[k]});powerHand(fin,rep);return rep.map(i=>fin[i]);
+}
+
+// ---- Card grants: the admin queues cards for a player; their next dealt round uses the oldest unused grant
+async function takeGrant(uid){
+ if(!LB||!uid)return null;
+ try{const all=await lbCall(fbp("grants",uid),"GET",null,2500);if(!all||typeof all!=="object")return null;
+  const g=Object.entries(all).filter(([k,v])=>v&&!v.used&&Array.isArray(v.cards)).sort((a,b)=>(a[1].ts||0)-(b[1].ts||0))[0];
+  if(!g)return null;
+  await lbCall("/grants/"+encodeURIComponent(uid)+"/"+encodeURIComponent(g[0])+"/used.json","PUT",true,2500);
+  return g[1].cards.slice(0,5);
+ }catch(e){return null}
+}
+const findLevel=g=>g&&(levels.find(l=>String(l.id)===String(g.id))||levels.find(l=>l.name===g.name))||null;
+// Deals two 5-card hands from `deck`. Granted cards go into the player's hand (pulled out of the deck or the other hand so nobody holds a duplicate); otherwise the power hour may tweak the hand.
+async function dealRig(idA,idB,boostA,boostB){
+ const H=[deck.splice(0,5),deck.splice(0,5)],kept=[new Set(),new Set()],boost=[boostA,boostB];
+ const gs=await Promise.all([idA,idB].map(takeGrant));
+ H.forEach((h,p)=>{
+  const g=gs[p];
+  if(!g||!g.length){if(boost[p]&&pwOn())powerHand(h,[0,1,2,3,4]);return}
+  g.forEach(gc=>{
+   const c=findLevel(gc);if(!c||kept[p].size>=5)return;
+   const at=h.indexOf(c);if(at>=0){kept[p].add(at);return}
+   const d=deck.indexOf(c),o=H[1-p],oi=o.indexOf(c);
+   if(d>=0)deck.splice(d,1);else if(oi>=0&&!kept[1-p].has(oi))o[oi]=deck.shift();else return;
+   const slot=[0,1,2,3,4].find(i=>!kept[p].has(i));
+   deck.splice(Math.random()*(deck.length+1)|0,0,h[slot]);h[slot]=c;kept[p].add(slot)});
+ });
+ return H;
+}
+
+// ---- Live spectating: the game publishes its table to /live/<id> so the admin panel can watch it
+const SPEC_ID=Array.from(crypto.getRandomValues(new Uint8Array(12)),x=>(x%36).toString(36)).join("");
+let rstage="menu",lastRes="",specChat=[],guestHeld=[],specTimer=0,specOn=false;
+const pubS=c=>c?{n:String(c.name).slice(0,40),p:c.position,y:c.yt||null,i:String(c.id)}:null;
+function specBody(){
+ const pvp=mode==="pvp";
+ return{mode,diff:pvp?null:diff,stage:rstage,bet,res:lastRes.slice(0,120),chat:specChat.slice(-20),
+  a:{id:myId,name:myName,hand:hand.map(pubS),held:held.slice(),coins},
+  b:{id:pvp?oppId:"",name:OPP,hand:(pvp?ghand:dhand).map(pubS),held:pvp?guestHeld:[]},
+  ts:{".sv":"timestamp"}};
+}
+function specPush(){ // debounced; in PvP only the host publishes (it knows both hands)
+ if(!LB||!dcUser||rstage==="menu"||(mode==="pvp"&&net.role!=="host"))return;
+ clearTimeout(specTimer);specTimer=setTimeout(()=>{specOn=true;lbCall(fbp("live",SPEC_ID),"PUT",specBody(),4000).catch(()=>{})},300);
+}
+const specHolds=()=>{if(mode==="pvp"&&net.role==="guest")send({t:"holds",h:held});else specPush()};
+setInterval(()=>{if(specOn)specPush()},20000); // heartbeat so the admin can tell live games from stale ones
+addEventListener("pagehide",()=>{if(!specOn)return;specOn=false;try{fetch(LB+fbp("live",SPEC_ID),{method:"DELETE",keepalive:true})}catch(e){}});
 // ---- Account settings screen
 const MOT_KEY="dpp_motion",DATA_KEYS=["dpp_dc","dpp_sfx","dpp_mus",MOT_KEY];
 const mq=window.matchMedia?matchMedia("(prefers-reduced-motion: reduce)"):null;
@@ -559,7 +681,8 @@ $("#sdel").onclick=async()=>{
 const dcErr=t=>{$("#dcerr").textContent=t||""};
 function dcShow(){ // logged in -> main menu, otherwise the login screen
  const u=dcUser;myPic=dcPic;myName=u?u.name:"You";myId=u?u.id:"";
- if(u){$("#dcname").textContent=u.name;$("#dcav").src=u.avatar||"assets/dealer.png";lbStart()}
+ if(u){$("#dcname").textContent=u.name;$("#dcav").src=u.avatar||"assets/dealer.png";banState="checking";
+  getBan(u.id).then(b=>{if(dcUser!==u)return;if(b)showBanned(b);else{banState="ok";lbStart()}})}
  scr(u?"m-main":"m-login");
 }
 function dcApply(u){dcUser=u;dcPic=goodPic(u.pic);dcShow()}
@@ -586,7 +709,7 @@ function startDiscord(){
  location.href="https://discord.com/oauth2/authorize?"+new URLSearchParams({client_id:DISCORD_CLIENT_ID,response_type:"token",scope:"identify",state:st,redirect_uri:location.origin+location.pathname});
  return true}
 $("#dcin").onclick=()=>{sfxClick();startDiscord()};
-$("#dcout").onclick=()=>{sfxClick();dcUser=dcPic=myPic=null;myId=myName="";lbMe=null;store.del("dpp_dc");dcErr("");scr("m-login")};
+$("#dcout").onclick=()=>{sfxClick();dcUser=dcPic=myPic=null;banState="checking";myId=myName="";lbMe=null;store.del("dpp_dc");dcErr("");scr("m-login")};
 { // coming back from Discord?
  const hp=new URLSearchParams(location.hash.slice(1)),tok=hp.get("access_token"),err=hp.get("error_description")||hp.get("error");
  if(tok||err){history.replaceState(null,"",location.pathname+location.search);
@@ -598,7 +721,7 @@ $("#dcout").onclick=()=>{sfxClick();dcUser=dcPic=myPic=null;myId=myName="";lbMe=
 }
 // the bot's dealer is a random character each time you start a bot game
 const CHARS=[{n:"Shopkeeper",i:null},{n:"The Wizard Grandmaster",i:"assets/chars/wizard.png"},{n:"The Biger F",i:"assets/chars/biger-f.png"},{n:"Npesta",i:"assets/chars/npesta.png"}];
-$("#mBot").onclick=()=>{sfxClick();startMusic();scr("m-diff")};
+$("#mBot").onclick=()=>{if(banState==="banned")return;sfxClick();startMusic();scr("m-diff")};
 $("#mBack3").onclick=()=>{sfxClick();scr("m-main")};
 document.querySelectorAll(".dbtn").forEach(b=>b.onclick=async()=>{sfxClick();await ready;mode="bot";diff=b.dataset.d;
  const c=CHARS[Math.random()*CHARS.length|0],D=DIFFS[diff];OPP=c.n;enterGame(`${OPP} is your dealer (${D.label}). Press DEAL to start.`,c.i,!!c.i);
@@ -606,7 +729,7 @@ document.querySelectorAll(".dbtn").forEach(b=>b.onclick=async()=>{sfxClick();awa
  if(live){$("#st").className="";$("#st").textContent=`Bot difficulty: ${D.label}. ${D.say}`}});
 $("#mPvp").onclick=()=>{startMusic();goLobby()};
 const goLobby=async()=>{
- if(!dcUser)return;sfxClick();lobErr("");scr("m-wait");$("#wroom").hidden=true;$("#mwait").textContent="Loading the demon list…";await ready;$("#mwait").textContent="Connecting to the lobby…";if($("#m-wait").hidden)return;startLobby()};
+ if(!dcUser||banState==="banned")return;sfxClick();lobErr("");scr("m-wait");$("#wroom").hidden=true;$("#mwait").textContent="Loading the demon list…";await ready;$("#mwait").textContent="Connecting to the lobby…";if($("#m-wait").hidden)return;startLobby()};
 $("#mBack2").onclick=()=>{sfxClick();netCleanup();scr("m-main");lbRefresh()};
 $("#mCancel").onclick=()=>{sfxClick();
  if(net.room){unregRoom();net.room=null;showLobby()}else{netCleanup();scr("m-main")}};
@@ -634,7 +757,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")cf.classList.remove(
 cf.onclick=e=>{if(e.target===cf)cf.classList.remove("on")};
 $("#go").onclick=async()=>{
  sfxClick();startMusic();
- if(phase==="busy")return;
+ if(phase==="busy"||banState==="banned")return;
  if(phase!=="hold"){mode==="bot"?await botDeal():pvpReady()}
  else{mode==="bot"?await botDraw():await pvpDraw()}
 };

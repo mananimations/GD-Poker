@@ -167,3 +167,9 @@ html[data-reduce] *,html[data-reduce] *:before,html[data-reduce] *:after{animati
 html[data-reduce] .pop{transform:translate(-50%,0);opacity:1}
 html[data-motion=full] #table{animation:felt 2.4s linear infinite}
 .srow2>span{min-width:110px}
+
+/* power hour banner (admin-controlled) */
+#pwr{position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:300;max-width:calc(100% - 20px);text-align:center;pointer-events:none;
+ background:linear-gradient(90deg,#ffd23f,#fb923c);color:var(--ink);font-weight:900;font-size:13px;border:3px solid var(--ink);border-radius:999px;padding:4px 14px;box-shadow:0 3px 0 var(--ink),0 0 18px rgba(255,210,63,.6);animation:glow 1s infinite alternate}
+#pwr[hidden]{display:none}
+#m-banned p{color:var(--red)}
