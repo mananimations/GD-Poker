@@ -200,11 +200,25 @@ tr.banned td{background:rgba(255,77,94,.12)}
   <section class="tab" id="t-dailycard" hidden>
    <div class="panel">
     <div class="bar"><h2>⭐ Global Card of the Day</h2><span class="sp"></span><span id="dailyAdminStatus" class="chip">Loading…</span></div>
-    <p class="mut" style="margin:8px 0 12px">Choose the card every player sees today. Your selection is shared globally and expires automatically at 12:00 AM Eastern Time; the normal daily random selection then takes over.</p>
+    <p class="mut" style="margin:8px 0 12px">See the live global card, change it immediately, or schedule a different card for a future date. Scheduled cards take effect at 12:00 AM Eastern Time on their selected date.</p>
+    <div class="panel" style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin:10px 0">
+     <div><b>Currently displayed to players</b><div id="dailyAdminCurrent" class="mut" style="margin-top:5px">Loading current card…</div></div>
+     <div id="dailyAdminCurrentTile" style="min-width:100px"></div>
+     <button class="btn sm dim" id="dailyAdminReloadCurrent">↻ Refresh current card</button>
+    </div>
     <div class="bar"><input type="text" id="dailyAdminSearch" placeholder="Search card name or position…" style="flex:1;min-width:220px"><button class="btn sm dim" id="dailyAdminRefresh">↻ Refresh list</button></div>
     <div id="dailyAdminResults" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-top:10px;max-height:420px;overflow:auto"></div>
-    <div class="bar" style="margin-top:12px"><span id="dailyAdminChosen" class="mut">No card selected</span><span class="sp"></span><button class="btn gold" id="dailyAdminSet" disabled>⭐ Set as Today's Card</button><button class="btn danger" id="dailyAdminReset">Reset to Random</button></div>
-    <small>Changes are saved to Firebase and picked up by players automatically. The card list comes from the AREDL API.</small>
+    <div class="bar" style="margin-top:12px"><span id="dailyAdminChosen" class="mut">No card selected</span><span class="sp"></span><button class="btn gold" id="dailyAdminSet" disabled>⭐ Set as Today's Card Now</button><button class="btn danger" id="dailyAdminReset">Reset to Random</button></div>
+    <div class="panel" style="margin-top:12px">
+     <h3>📅 Schedule a Card of the Day</h3>
+     <div class="bar" style="margin-top:8px">
+      <label class="fl" style="margin:0">Date (Eastern Time)<input type="date" id="dailyAdminScheduleDate"></label>
+      <button class="btn" id="dailyAdminSchedule" disabled>Schedule Selected Card</button>
+      <button class="btn sm dim" id="dailyAdminShowSchedule">View scheduled cards</button>
+     </div>
+     <div id="dailyAdminScheduleList" class="mut" style="margin-top:8px">Scheduled cards will appear here.</div>
+    </div>
+    <small>Immediate changes update everyone. Future schedules are retained in Firebase and automatically take effect at midnight Eastern Time. The card list comes from the AREDL API.</small>
    </div>
   </section>
 
@@ -664,6 +678,40 @@ async function loadDailyAdminLevels(){
  })().catch(e=>{DAILY_ADMIN_READY=null;throw e});
  return DAILY_ADMIN_READY;
 }
+function dailyAdminDeterministic(day){
+ const pool=DAILY_ADMIN_LEVELS.slice().sort((a,b)=>a.position-b.position||String(a.id).localeCompare(String(b.id)));
+ if(!pool.length)return null;
+ let hash=2166136261;for(const ch of day){hash^=ch.charCodeAt(0);hash=Math.imul(hash,16777619)}
+ return pool[(hash>>>0)%pool.length];
+}
+function dailyAdminShowCurrent(card,source){
+ const host=$("#dailyAdminCurrentTile");host.replaceChildren();
+ if(!card){$("#dailyAdminCurrent").textContent="Unable to determine current card";return}
+ $("#dailyAdminCurrent").textContent=`#${card.position} · ${card.name} (${source})`;
+ host.append(tile({n:card.name,p:card.position,y:card.yt}));
+}
+async function refreshDailyAdminCurrent(){
+ await loadDailyAdminLevels();
+ const day=easternToday(),scheduled=await api("/config/cardOfDaySchedule/"+day+".json").catch(()=>null);
+ const saved=await api("/config/cardOfDay.json").catch(()=>null);
+ let card=scheduled&&scheduled.card?scheduled.card:(saved&&saved.day===day&&saved.card?saved.card:dailyAdminDeterministic(day));
+ if(card){const full=DAILY_ADMIN_LEVELS.find(c=>String(c.id)===String(card.id));if(full)card=full}
+ const source=scheduled&&scheduled.card?"scheduled":saved&&saved.day===day&&saved.card?"admin override":"automatic daily pick";
+ dailyAdminShowCurrent(card,source);
+}
+async function showDailyAdminSchedule(){
+ const data=await api("/config/cardOfDaySchedule.json").catch(()=>({}));
+ const rows=Object.entries(data||{}).filter(([day,v])=>v&&v.card).sort(([a],[b])=>a.localeCompare(b));
+ const host=$("#dailyAdminScheduleList");host.replaceChildren();
+ if(!rows.length){host.textContent="No upcoming cards scheduled.";return}
+ for(const [day,v] of rows){
+  const line=h("div",{class:"bar",style:"padding:6px 0;border-bottom:1px solid var(--line)"},h("span",{text:`${day} · #${v.card.position} ${v.card.name}`}),h("span",{class:"sp"}),h("button",{class:"btn sm danger",text:"Cancel",onclick:async()=>{
+   if(!await confirmBox("Cancel scheduled card?",`Remove the scheduled card for ${day}?`,"Cancel schedule",true))return;
+   try{await api("/config/cardOfDaySchedule/"+day+".json","DELETE");toast("Schedule removed");showDailyAdminSchedule()}catch(e){fail(e)}
+  }}));
+  host.append(line);
+ }
+}
 function renderDailyAdminResults(){
  const q=$("#dailyAdminSearch").value.trim().toLowerCase(),rows=DAILY_ADMIN_LEVELS.filter(c=>!q||c.name.toLowerCase().includes(q)||String(c.position).includes(q)).slice(0,150),host=$("#dailyAdminResults");
  host.replaceChildren();
@@ -671,7 +719,7 @@ function renderDailyAdminResults(){
  for(const c of rows){
   const selected=DAILY_ADMIN_CARD&&String(DAILY_ADMIN_CARD.id)===String(c.id);
   host.append(h("button",{class:"preset",style:selected?"border-color:var(--gold);background:rgba(255,210,63,.12)":"",onclick:()=>{
-   DAILY_ADMIN_CARD=c;$("#dailyAdminChosen").textContent=`Selected: #${c.position} · ${c.name}`;$("#dailyAdminSet").disabled=false;renderDailyAdminResults();
+   DAILY_ADMIN_CARD=c;$("#dailyAdminChosen").textContent=`Selected: #${c.position} · ${c.name}`;$("#dailyAdminSet").disabled=false;$("#dailyAdminSchedule").disabled=false;renderDailyAdminResults();
   }},h("b",{text:"#"+c.position+" · "+c.name}),h("span",{text:"Click to select this card"})));
  }
 }
@@ -686,7 +734,7 @@ async function loadDailyAdmin(){
   }else{
    DAILY_ADMIN_CARD=null;$("#dailyAdminChosen").textContent="No custom card — daily random selection is active";$("#dailyAdminStatus").textContent="Random selection";
   }
-  $("#dailyAdminSet").disabled=!DAILY_ADMIN_CARD;renderDailyAdminResults();
+  $("#dailyAdminSet").disabled=!DAILY_ADMIN_CARD;$("#dailyAdminSchedule").disabled=!DAILY_ADMIN_CARD;renderDailyAdminResults();await refreshDailyAdminCurrent();await showDailyAdminSchedule();
  }catch(e){fail(e,"Card of the Day");$("#dailyAdminStatus").textContent="Load failed"}
 }
 $("#dailyAdminSearch").oninput=()=>{if(DAILY_ADMIN_LEVELS.length)renderDailyAdminResults()};
@@ -698,7 +746,20 @@ $("#dailyAdminSet").onclick=async()=>{
  try{
   await api("/config/cardOfDay.json","PUT",{day,card:{id:String(c.id),name:c.name,position:+c.position,yt:c.yt||null,img:c.img||null},updatedAt:{".sv":"timestamp"},updatedBy:S.email});
   $("#dailyAdminStatus").textContent="Custom card active";$("#dailyAdminChosen").textContent=`Today's card: #${c.position} · ${c.name}`;
-  audit("card of the day",`Set #${c.position} ${c.name} for ${day}`);toast("⭐ Card of the Day updated for everyone");
+  audit("card of the day",`Set #${c.position} ${c.name} for ${day}`);await refreshDailyAdminCurrent();toast("⭐ Card of the Day updated for everyone");
+ }catch(e){fail(e)}
+};
+$("#dailyAdminReloadCurrent").onclick=async()=>{try{await refreshDailyAdminCurrent();toast("Current card refreshed")}catch(e){fail(e)}};
+$("#dailyAdminShowSchedule").onclick=()=>showDailyAdminSchedule().catch(fail);
+$("#dailyAdminScheduleDate").min=easternToday();
+$("#dailyAdminSchedule").onclick=async()=>{
+ if(!DAILY_ADMIN_CARD)return;
+ const day=$("#dailyAdminScheduleDate").value,c=DAILY_ADMIN_CARD;
+ if(!day||day<easternToday())return toast("Choose today or a future date.");
+ if(!await confirmBox("Schedule this Card of the Day?",`#${c.position} · ${c.name} will become the global card on ${day} at midnight Eastern Time.`,"Schedule Card"))return;
+ try{
+  await api("/config/cardOfDaySchedule/"+day+".json","PUT",{day,card:{id:String(c.id),name:c.name,position:+c.position,yt:c.yt||null,img:c.img||null},updatedAt:{".sv":"timestamp"},updatedBy:S.email});
+  await showDailyAdminSchedule();toast("📅 Card scheduled for "+day);audit("card of the day scheduled",`#${c.position} ${c.name} for ${day}`);
  }catch(e){fail(e)}
 };
 $("#dailyAdminReset").onclick=async()=>{
@@ -706,7 +767,7 @@ $("#dailyAdminReset").onclick=async()=>{
  try{
   await api("/config/cardOfDay.json","DELETE");DAILY_ADMIN_CARD=null;$("#dailyAdminSet").disabled=true;
   $("#dailyAdminChosen").textContent="No custom card — daily random selection is active";$("#dailyAdminStatus").textContent="Random selection";
-  renderDailyAdminResults();audit("card of the day","Reset to automatic daily random selection");toast("⭐ Automatic Card of the Day restored");
+  renderDailyAdminResults();await refreshDailyAdminCurrent();audit("card of the day","Reset to automatic daily random selection");toast("⭐ Automatic Card of the Day restored");
  }catch(e){fail(e)}
 };
 

@@ -133,8 +133,12 @@ async function renderDailyCard(){
  const day=easternDay(),el=$("#dailycard");if(!el)return;
  let override=null;
  try{
-  const r=await fetch(LEADERBOARD_DB+"/config/cardOfDay.json");
-  if(r.ok){const saved=await r.json();if(saved&&saved.day===day&&saved.card)override=saved.card}
+  const [scheduledResponse,overrideResponse]=await Promise.all([
+   fetch(LEADERBOARD_DB+"/config/cardOfDaySchedule/"+day+".json"),
+   fetch(LEADERBOARD_DB+"/config/cardOfDay.json")
+  ]);
+  if(scheduledResponse.ok){const scheduled=await scheduledResponse.json();if(scheduled&&scheduled.card)override=scheduled.card}
+  if(!override&&overrideResponse.ok){const saved=await overrideResponse.json();if(saved&&saved.day===day&&saved.card)override=saved.card}
  }catch(e){}
  const c=override||dailyCardFor(day);if(!c)return;
  const signature=day+"|"+String(c.id)+"|"+String(c.position)+"|"+String(c.name);
