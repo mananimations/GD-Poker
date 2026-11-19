@@ -278,9 +278,30 @@ function onMsg(m){
   case"cards":if(net.onCards){const f=net.onCards;net.onCards=null;f(m.cards)}break;
   case"opdraw":oppDiscard(m.idx||[]);break;
   case"reveal":oppReveal=m.hand;if(meDrew)showdown(oppReveal);break;
+  case"chat":if(typeof m.x==="string"&&rateOk("c",350)){chatAdd(OPP,clean2(m.x),false);sfxClick()}break;
+  case"emote":if(EMOTES.includes(m.e)&&rateOk("e",350)){popEmote($("#av"),m.e);sfxFlip()}break;
   case"bye":opponentLeft();break;
  }
 }
+// ---- Room chat + emotes (PvP only)
+const EMOTES=["😈","😭","🙏","💀","✌️","🐴","🥀","💔","🔥","🐔","🤑","‼️","⁉️"];
+const clean2=t=>String(t).replace(/[\u0000-\u001f]/g,"").trim().slice(0,120);
+const lastT={};const rateOk=(k,ms)=>{const n=Date.now();if(n-(lastT[k]||0)<ms)return false;lastT[k]=n;return true};
+function chatAdd(who,text,mine,sys){
+ const log=$("#clog"),d=document.createElement("div");
+ if(sys)d.className="sys";else{d.className=mine?"me":"";const b=document.createElement("b");b.textContent=who+": ";d.appendChild(b)}
+ d.appendChild(document.createTextNode(text));log.appendChild(d);
+ while(log.children.length>60)log.firstChild.remove();log.scrollTop=log.scrollHeight;
+}
+function popEmote(host,e){
+ const p=document.createElement("span");p.className="pop";p.textContent=e;host.appendChild(p);setTimeout(()=>p.remove(),2300);
+}
+$("#emotes").innerHTML=EMOTES.map(e=>`<button type="button" aria-label="Emote ${e}">${e}</button>`).join("");
+$("#emotes").onclick=ev=>{const b=ev.target.closest("button");if(!b||mode!=="pvp"||!net.started||!rateOk("se",500))return;
+ const e=b.textContent;sfxClick();send({t:"emote",e});popEmote($("#mlbl"),e)};
+$("#cform").onsubmit=ev=>{ev.preventDefault();const t=clean2($("#cin").value);
+ if(!t||mode!=="pvp"||!net.started||!rateOk("sc",400))return;
+ send({t:"chat",x:t});chatAdd(myName,t,true);$("#cin").value=""};
 function opponentLeft(why){
  if(!net.started)return;net.started=false;clearInterval(net.hb);
  showOv(`${OPP} ${why||"left the game"}.`,"click to return to the menu",()=>location.reload());
@@ -297,7 +318,7 @@ function setupConn(c,role){
 let myPic=null;
 const goodPic=p=>typeof p==="string"&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(p)&&p.length<80000?p:null;
 function beginPvp(name,pic){
- net.started=true;OPP=name;mode="pvp";
+ net.started=true;OPP=name;mode="pvp";$("#chat").hidden=false;$("#clog").textContent="";chatAdd("",`Chat with ${OPP}. Emotes pop up over avatars.`,false,true);
  clearInterval(net.hb);net.hb=setInterval(()=>{send({t:"ping"});if(Date.now()-net.last>25000)opponentLeft("lost connection")},3000);
  enterGame(`Matched with ${OPP}! Press DEAL when you're ready.`,pic);
  $("#st").className=live?"":"bad";$("#st").textContent=`Playing against ${OPP} (peer-to-peer). Both players press DEAL to start each round.`;
@@ -521,6 +542,16 @@ $("#go").onclick=async()=>{
  if(phase!=="hold"){mode==="bot"?await botDeal():pvpReady()}
  else{mode==="bot"?await botDraw():await pvpDraw()}
 };
-mk($("#drow"),dEls,false);mk($("#prow"),pEls,true);
+mk($("#drow"),dEls,false);mk($("#prow"),pEls,true);pEls.forEach((e,i)=>e.dataset.k=i+1);
+// Keyboard: 1-5 toggle discards, Space deals/draws (Space also dismisses the pop-up message)
+document.addEventListener("keydown",e=>{
+ const t=e.target,typing=t&&(t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.isContentEditable);
+ if(typing||e.ctrlKey||e.metaKey||e.altKey||e.repeat)return;
+ if(!$("#menu").classList.contains("gone")||cf.classList.contains("on"))return;
+ if(e.key===" "||e.code==="Space"){e.preventDefault();if(t&&t.blur&&t.tagName==="BUTTON")t.blur();
+  if($("#ov").classList.contains("on"))$("#ov").click();else $("#go").click()}
+ else if(/^[1-5]$/.test(e.key)&&!$("#ov").classList.contains("on")){const c=pEls[+e.key-1];if(c&&c.onclick)c.onclick()}
+});
+document.addEventListener("keyup",e=>{if(e.code==="Space"&&!(e.target.tagName==="INPUT"))e.preventDefault()});
 $("#mBot").disabled=$("#mPvp").disabled=false;$("#mload").textContent="Loading the demon list…";
 ready=load().catch(e=>{levels=FB.map((n,i)=>({id:"f"+i,name:n,position:FBP[i]}));$("#mload").textContent="Offline demo mode"});

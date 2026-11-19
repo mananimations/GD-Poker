@@ -107,3 +107,19 @@ h1{margin:0 0 8px;text-align:center;font-size:clamp(20px,4vw,30px);color:var(--g
 #dlist{display:flex;flex-direction:column;gap:10px;width:100%}
 .dbtn{width:100%;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 14px;background:var(--dc,#777);color:#111;text-shadow:none}
 .dbtn b{font-size:22px;letter-spacing:1px}.dbtn span{font-size:12px;font-weight:700;opacity:.85}
+
+#chat{background:var(--panel);border:5px solid var(--ink);border-radius:22px;box-shadow:0 8px 0 var(--ink),0 0 0 3px var(--gold);padding:14px;font-size:13px;line-height:1.35}
+#chat h2{margin:0 0 6px;font-size:14px;color:var(--gold);text-shadow:2px 2px 0 var(--ink);letter-spacing:1px}
+#clog{height:130px;overflow-y:auto;background:rgba(0,0,0,.35);border-radius:8px;padding:6px 8px;display:flex;flex-direction:column;gap:3px;word-break:break-word}
+#clog div{font-size:12px}#clog b{color:var(--gold)}#clog .me b{color:#67e8f9}#clog .sys{opacity:.6;font-style:italic}
+#emotes{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
+#emotes button{font-size:20px;line-height:1;padding:4px 6px;background:var(--ink);border:2px solid var(--gold);border-radius:8px;cursor:pointer}
+#emotes button:hover{background:#3a2370}#emotes button:active{transform:translateY(2px)}
+#cform{display:flex;gap:6px}#cin{flex:1;min-width:0;font:inherit;font-size:13px;padding:6px 8px;border:3px solid var(--ink);border-radius:8px}
+#av,#mlbl{position:relative}
+.pop{position:absolute;left:50%;top:-6px;font-size:44px;line-height:1;pointer-events:none;z-index:20;animation:popup 2.2s ease-out forwards;filter:drop-shadow(0 3px 0 var(--ink))}
+#mlbl .pop{top:-30px;font-size:34px}
+@keyframes popup{0%{transform:translate(-50%,10px) scale(.3);opacity:0}12%{transform:translate(-50%,-6px) scale(1.25);opacity:1}25%{transform:translate(-50%,-2px) scale(1)}80%{opacity:1}100%{transform:translate(-50%,-46px) scale(1);opacity:0}}
+@media(prefers-reduced-motion:reduce){.pop{animation:none;opacity:1}}
+#prow .card:before{content:attr(data-k);position:absolute;top:-9px;left:50%;transform:translateX(-50%);z-index:6;min-width:18px;text-align:center;font-weight:900;font-size:11px;background:var(--ink);color:var(--gold);border:2px solid var(--gold);border-radius:6px;padding:0 4px;display:none;pointer-events:none}
+#prow .card.on:before{display:block}

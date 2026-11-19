@@ -78,7 +78,7 @@
 <div id="table">
  <div id="dealer"><div id="av"><img id="dimg" alt="Dealer" src="assets/dealer.png"><div id="dname">Dealer</div></div><div id="say">Loading demons…</div></div>
  <div class="lbl" id="dlbl">DEALER'S HAND</div><div class="row" id="drow"></div><div class="hn" id="dn"></div>
- <div class="lbl"><img id="myav" alt="" hidden><span id="mylbl">YOUR HAND</span></div><div class="row" id="prow"></div><div class="hn" id="pn"></div>
+ <div class="lbl" id="mlbl"><img id="myav" alt="" hidden><span id="mylbl">YOUR HAND</span></div><div class="row" id="prow"></div><div class="hn" id="pn"></div>
 </div>
 <div id="hud">
  <div class="box">COINS <b id="coins">100</b></div>
@@ -89,13 +89,20 @@
  <button class="btn sm" id="leave" title="Back to menu">MENU</button>
 </div>
 <div id="ov"><div id="ovb"><p></p><small>click to continue</small></div></div><div id="cf"><div id="cfb"><p>Leave the game?</p><small>You will be taken back to the menu and the current match will end.</small><div class="cfr"><button class="btn" id="cfstay">STAY</button><button class="btn alt" id="cfleave">LEAVE</button></div></div></div><div id="ytp"></div><div id="st"></div></div>
-<div id="side"><aside id="rules">
+<div id="side"><aside id="chat" hidden>
+ <h2>ROOM CHAT</h2>
+ <div id="clog" aria-live="polite"></div>
+ <div id="emotes"></div>
+ <form id="cform" autocomplete="off"><input id="cin" type="text" maxlength="120" placeholder="Say something…"><button class="btn sm go" type="submit">SEND</button></form>
+</aside><aside id="rules">
  <h2>HOW TO PLAY</h2>
  <ol><li>Set your bet (1–10 coins) and press <b>DEAL</b>.</li>
  <li>Your five cards flip up and are all <b>held</b>. Tap any card you want to <b>discard</b>.</li>
  <li>Press <b>DRAW</b>: discards slide away and fresh cards slide in.</li>
  <li>Your opponent (the dealer bot, or the other player) draws too, then both hands flip.</li>
  <li>Beat their hand to win. A tie returns your bet.</li></ol>
+ <h2>KEYBOARD</h2>
+ <p><b>1</b>–<b>5</b> toggle discards on your five cards (left to right). <b>Space</b> deals or draws.</p>
  <h2>THE CARDS</h2>
  <p>Every card is a real level from the Extreme Demon List. The <b>#number</b> is its list position, and the coloured tag is its rarity.</p>
  <h2>HANDS</h2>
