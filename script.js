@@ -484,7 +484,9 @@ $("#dcin").onclick=()=>{sfxClick();
  if(location.protocol==="file:"){dcErr("Discord login needs the game to be hosted (not opened as a file).");return}
  const st=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,"0")).join("");
  try{sessionStorage.setItem("dpp_state",st)}catch(e){}
- location.href="https://discord.com/oauth2/authorize?"+new URLSearchParams({client_id:DISCORD_CLIENT_ID,response_type:"token",scope:"identify",state:st,redirect_uri:location.origin+location.pathname,prompt:"none"})};
+ location.href="https://discord.com/oauth2/authorize?"+new URLSearchParams({client_id:DISCORD_CLIENT_ID,response_type:"token",scope:"identify",state:st,redirect_uri:location.origin+location.pathname})
+ dcErr("Opening Discord… If nothing happens, make sure this exact address is added under OAuth2 > Redirects in your Discord app: "+location.origin+location.pathname);
+ setTimeout(()=>{if(document.visibilityState==="visible"&&!dcUser)dcErr("Discord didn't open. Open the game directly in its own browser tab (not inside a preview), and add this exact address under OAuth2 > Redirects in your Discord app: "+location.origin+location.pathname)},3500)};
 $("#dcout").onclick=()=>{sfxClick();dcUser=dcPic=myPic=null;store.del("dpp_dc");store.del("dpp_name");$("#mname").value="";dcErr("");scr("m-login")};
 { // coming back from Discord?
  const hp=new URLSearchParams(location.hash.slice(1)),tok=hp.get("access_token"),err=hp.get("error_description")||hp.get("error");
