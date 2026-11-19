@@ -10,31 +10,36 @@ const FBP=[3,4,9,14,18,25,40,55,80,95,120,160,200,250,290,320,400,480,520,600,70
 const $=s=>document.querySelector(s),say=t=>$("#say").textContent=t,sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 // ---- Sound effects (synthesised with Web Audio) and background music (YouTube embed)
-let actx=null,sfxOn=true,musicOn=true,wantPlay=false;
-function ac(){if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();if(actx.state==="suspended")actx.resume();return actx}
+let actx=null,mg=null,sfxVol=.7,sfxOn=true,musVol=.35,musicOn=true,wantPlay=false;
+const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
+function ac(){if(!actx){actx=new(window.AudioContext||window.webkitAudioContext)();mg=actx.createGain();mg.gain.value=sfxVol;mg.connect(actx.destination)}if(actx.state==="suspended")actx.resume();return actx}
 function sfxFlip(){if(!sfxOn)return;try{const a=ac(),n=a.sampleRate*.14|0,b=a.createBuffer(1,n,a.sampleRate),d=b.getChannelData(0);
  for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,2.2);
  const s=a.createBufferSource();s.buffer=b;const f=a.createBiquadFilter();f.type="bandpass";f.Q.value=.9;f.frequency.setValueAtTime(1400,a.currentTime);f.frequency.exponentialRampToValueAtTime(5200,a.currentTime+.13);
- const g=a.createGain();g.gain.value=.7;s.connect(f);f.connect(g);g.connect(a.destination);s.start()}catch(e){}}
+ const g=a.createGain();g.gain.value=.7;s.connect(f);f.connect(g);g.connect(mg);s.start()}catch(e){}}
 function sfxClick(){if(!sfxOn)return;try{const a=ac(),o=a.createOscillator(),g=a.createGain(),t=a.currentTime;
  o.type="square";o.frequency.setValueAtTime(880,t);o.frequency.exponentialRampToValueAtTime(440,t+.06);
- g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.001,t+.08);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+.09)}catch(e){}}
+ g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.001,t+.08);o.connect(g);g.connect(mg);o.start(t);o.stop(t+.09)}catch(e){}}
 function tone(f,t0,d,type,v){const a=ac(),o=a.createOscillator(),g=a.createGain(),t=a.currentTime+t0;o.type=type;o.frequency.value=f;
- g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.02);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+.02)}
+ g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.02);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(mg);o.start(t);o.stop(t+d+.02)}
 function sfxWin(){if(!sfxOn)return;try{[523,659,784,1047,784,1047].forEach((f,i)=>tone(f,i*.12,i>3?.35:.16,"square",.13));[262,330,392,523].forEach((f,i)=>tone(f,i*.12+.02,.3,"triangle",.14))}catch(e){}}
 function sfxApex(){if(!sfxOn)return;try{
  tone(65,0,1.1,"sine",.3);tone(98,0,1,"triangle",.18);
  [1047,1319,1568,2093,2637,3136].forEach((f,i)=>tone(f,.08+i*.07,.3,"triangle",.07));
  [523,659,784,1047].forEach(f=>tone(f,.55,1.2,"square",.06))}catch(e){}}
 function sfxLose(){if(!sfxOn)return;try{[392,370,349,330].forEach((f,i)=>tone(f,i*.22,i>2?.7:.3,"sawtooth",.1))}catch(e){}}
-const bgm=new Audio("assets/bgm.mp3");bgm.loop=true;bgm.volume=.35;bgm.preload="auto";
+const bgm=new Audio("assets/bgm.mp3");bgm.loop=true;bgm.volume=musVol;bgm.preload="auto";
 let musicWarned=false;
 function startMusic(){wantPlay=true;if(!musicOn)return;const p=bgm.play();
- if(p&&p.catch)p.catch(()=>{if(!musicWarned){musicWarned=true;$("#st").insertAdjacentHTML("beforeend"," · Browser blocked the music: click the 🎵 button twice to start it.")}})}
+ if(p&&p.catch)p.catch(()=>{if(!musicWarned){musicWarned=true;$("#st").insertAdjacentHTML("beforeend"," · Browser blocked the music: move the 🎵 slider to start it.")}})}
 ["pointerdown","keydown"].forEach(ev=>document.addEventListener(ev,()=>{if(wantPlay===false)startMusic()},{once:true}));
-$("#snd").onclick=e=>{sfxOn=!sfxOn;e.target.textContent=sfxOn?"🔊":"🔇";e.target.classList.toggle("off",!sfxOn);sfxClick()};
-$("#mus").onclick=e=>{musicOn=!musicOn;e.target.classList.toggle("off",!musicOn);sfxClick();
- if(musicOn)startMusic();else bgm.pause()};
+{const sv=$("#sfxv"),mv=$("#musv"),ss=store.get("dpp_sfx"),ms=store.get("dpp_mus");
+ if(ss!==null&&!isNaN(+ss))sv.value=ss;if(ms!==null&&!isNaN(+ms))mv.value=ms;
+ const applySfx=()=>{sfxVol=sv.value/100;sfxOn=sfxVol>0;if(mg)mg.gain.value=sfxVol};
+ const applyMus=()=>{musVol=mv.value/100;musicOn=musVol>0;bgm.volume=musVol;if(musicOn){if(wantPlay&&bgm.paused)startMusic()}else bgm.pause()};
+ sv.oninput=()=>{applySfx();store.set("dpp_sfx",sv.value)};sv.onchange=()=>sfxClick();
+ mv.oninput=()=>{applyMus();store.set("dpp_mus",mv.value);if(musicOn)startMusic()};
+ applySfx();applyMus();}
 let levels=[],deck=[],hand=[],dhand=[],held=[],phase="idle",coins=100,bet=5,live=false;
 const pEls=[],dEls=[];
 $("#pay").innerHTML=Object.values(HANDS).map(h=>`<div><span>${h[0]}</span><b>×${h[1]}</b></div>`).join("");
@@ -117,7 +122,6 @@ const pub=c=>({id:c.id,name:c.name,position:c.position,yt:c.yt,img:c.img});
 const lockBet=()=>phase==="hold"||phase==="busy";
 $("#bm").onclick=()=>{sfxClick();if(!lockBet()&&bet>1)$("#bet").textContent=--bet};
 $("#bp").onclick=()=>{sfxClick();if(!lockBet()&&bet<Math.min(10,coins))$("#bet").textContent=++bet};
-$("#leave").onclick=()=>{sfxClick();location.reload()};
 
 // Deal my five cards and flip them up (shared by bot + player modes)
 async function startRound(h){
@@ -183,8 +187,7 @@ async function botDraw(){
 }
 
 // ---- vs PLAYER (peer-to-peer via PeerJS; host deals, guest asks the host for cards)
-const LOBBY="demon-picture-poker-lobby-v1";
-const net={role:null,conn:null,gp:null,lb:null,gen:0,started:false,last:0,hb:null,onCards:null};
+const net={role:null,conn:null,gp:null,hp:null,hc:null,isHub:false,regs:new Map(),hubConns:new Set(),room:null,rooms:[],stage:null,connecting:null,gen:0,started:false,last:0,hb:null,onCards:null};
 let hostReady=false,guestReady=false,meDrew=false,guestDrew=false,revealed=false,oppReveal=null,ghand=[];
 const send=m=>{try{if(net.conn&&net.conn.open)net.conn.send(m)}catch(e){}};
 const clean=n=>String(n||"").replace(/[\u0000-\u001f]/g,"").trim().slice(0,14)||"Player";
@@ -216,8 +219,8 @@ function onMsg(m){
  if(!m||typeof m!=="object")return;net.last=Date.now();
  switch(m.t){
   case"hello":if(net.started)return;
-   if(net.role==="host")send({t:"hello",name:myName});
-   beginPvp(clean(m.name));break;
+   if(net.role==="host")send({t:"hello",name:myName,pic:myPic});
+   beginPvp(clean(m.name),goodPic(m.pic));break;
   case"ready":if(net.role==="host"){guestReady=true;hostMaybeDeal()}break;
   case"deal":if(net.role==="guest"&&Array.isArray(m.hand)){resetSync();startRound(m.hand)}break;
   case"draw":if(net.role==="host"&&Array.isArray(m.rep)&&!guestDrew){
@@ -237,69 +240,188 @@ function setupConn(c,role){
  net.conn=c;net.role=role;net.last=Date.now();
  c.on("data",onMsg);c.on("close",()=>opponentLeft());c.on("error",()=>{});
 }
-function beginPvp(name){
+
+let myPic=null;
+const goodPic=p=>typeof p==="string"&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(p)&&p.length<80000?p:null;
+function beginPvp(name,pic){
  net.started=true;OPP=name;mode="pvp";
  clearInterval(net.hb);net.hb=setInterval(()=>{send({t:"ping"});if(Date.now()-net.last>90000)opponentLeft("lost connection")},5000);
- enterGame(`Matched with ${OPP}! Press DEAL when you're ready.`);
+ enterGame(`Matched with ${OPP}! Press DEAL when you're ready.`,pic);
  $("#st").className=live?"":"bad";$("#st").textContent=`Playing against ${OPP} (peer-to-peer). Both players press DEAL to start each round.`;
 }
-// matchmaking: the first player claims a well-known lobby id and waits; the next player finds it taken, joins it and is handed the first player's game id
-function setWait(t){$("#mwait").textContent=t}
-function netCleanup(){net.gen++;["gp","lb"].forEach(k=>{try{net[k]&&net[k].destroy()}catch(e){}net[k]=null});if(net.conn&&!net.started){try{net.conn.close()}catch(e){}}net.conn=null}
-function findMatch(){
- if(typeof Peer==="undefined"){setWait("Couldn't load the multiplayer library. Check your connection and reload.");return}
- netCleanup();const gen=net.gen;const alive=()=>gen===net.gen&&!net.conn;
- let hostTimer=null,gp;
- const restart=ms=>setTimeout(()=>{if(gen===net.gen&&!net.conn)findMatch()},ms);
- try{gp=new Peer()}catch(e){setWait("Multiplayer isn't available here.");return}
+
+// ================= LOBBY (rooms) =================
+// A well-known "hub" peer keeps the room directory. Whoever claims the id first is the hub; if the hub leaves, the others elect a new one and re-register their rooms.
+const HUB="demon-picture-poker-hub-v2";
+const scr=id=>document.querySelectorAll(".mscr").forEach(e=>e.hidden=e.id!==id);
+const lobErr=t=>{$("#lerr").textContent=t||""};
+function netCleanup(){
+ net.gen++;
+ for(const k of["gp","hp"]){try{net[k]&&net[k].destroy()}catch(e){}net[k]=null}
+ if(net.conn&&!net.started){try{net.conn.close()}catch(e){}}
+ net.conn=net.hc=net.room=null;net.isHub=false;net.regs.clear();net.hubConns.clear();net.rooms=[];net.stage=null;net.connecting=null;
+}
+function regInfo(){return{hid:net.gp.id,host:myName,locked:!!(net.room&&net.room.pw)}}
+function hubBroadcast(){
+ const list=[...net.regs.values()];
+ net.hubConns.forEach(c=>{try{c.open&&c.send({t:"rooms",list})}catch(e){}});
+ setRooms(list);
+}
+function sendReg(){
+ if(!net.room||!net.gp)return;
+ if(net.isHub){net.regs.set("self",regInfo());hubBroadcast()}
+ else if(net.hc&&net.hc.open)net.hc.send({t:"reg",room:regInfo()});
+}
+function unregRoom(){
+ if(net.isHub){if(net.regs.delete("self"))hubBroadcast()}
+ else if(net.hc&&net.hc.open)net.hc.send({t:"unreg"});
+}
+function hubMsg(c,m){
+ if(!m||typeof m!=="object")return;
+ if(m.t==="hi")c.send({t:"rooms",list:[...net.regs.values()]});
+ else if(m.t==="reg"&&m.room&&typeof m.room.hid==="string"){net.regs.set(c,{hid:m.room.hid.slice(0,60),host:clean(m.room.host),locked:!!m.room.locked});hubBroadcast()}
+ else if(m.t==="unreg"){if(net.regs.delete(c))hubBroadcast()}
+}
+function tryHub(){
+ const gen=net.gen,alive=()=>gen===net.gen&&net.gp;if(!alive())return;
+ let hp;try{hp=new Peer(HUB)}catch(e){return}net.hp=hp;
+ hp.on("open",()=>{if(!alive())return;net.isHub=true;net.hc=null;if(net.room)net.regs.set("self",regInfo());hubBroadcast()});
+ hp.on("connection",c=>{net.hubConns.add(c);c.on("data",m=>hubMsg(c,m));c.on("error",()=>{});
+  c.on("close",()=>{net.hubConns.delete(c);if(net.regs.delete(c))hubBroadcast()})});
+ hp.on("error",e=>{if(!alive())return;try{hp.destroy()}catch(x){}if(net.hp===hp)net.hp=null;
+  if(e.type==="unavailable-id")connectHub();else setTimeout(tryHub,3000)});
+}
+function connectHub(){
+ const gen=net.gen,alive=()=>gen===net.gen&&net.gp;if(!alive())return;
+ const c=net.gp.connect(HUB,{reliable:true});net.hc=c;net.connecting="hub";let ok=false;
+ const retry=()=>setTimeout(()=>{if(alive()&&!net.isHub&&!net.hp)tryHub()},1000+Math.random()*1500);
+ const to=setTimeout(()=>{if(!ok&&alive()){try{c.close()}catch(e){}net.hc=null;retry()}},7000);
+ c.on("open",()=>{ok=true;clearTimeout(to);net.connecting=null;c.send({t:"hi"});if(net.room)sendReg()});
+ c.on("data",m=>{if(m&&m.t==="rooms"&&Array.isArray(m.list))setRooms(m.list)});
+ c.on("close",()=>{if(!alive()||net.hc!==c)return;net.hc=null;setTimeout(tryHub,200+Math.random()*1200)});
+}
+function startLobby(){
+ netCleanup();const gen=net.gen;net.stage="entering";
+ if(typeof Peer==="undefined"){$("#mwait").textContent="Couldn't load the multiplayer library. Check your connection and reload.";return}
+ let gp;try{gp=new Peer()}catch(e){$("#mwait").textContent="Multiplayer isn't available here.";return}
  net.gp=gp;
- gp.on("connection",c=>{if(net.conn){c.close();return}clearTimeout(hostTimer);setupConn(c,"host");try{net.lb&&net.lb.destroy()}catch(e){}net.lb=null});
- gp.on("error",e=>{if(!alive())return;if(e.type==="peer-unavailable")retryJoin();else{setWait("Connection problem, retrying…");restart(3000)}});
- gp.on("open",()=>{if(alive())claimLobby()});
- let retryT=null;const retryJoin=()=>{clearTimeout(retryT);retryT=setTimeout(()=>{if(alive()){try{net.lb&&net.lb.destroy()}catch(e){}net.lb=null;claimLobby()}},1000+Math.random()*1500)};
- function claimLobby(){
-  const lb=new Peer(LOBBY);net.lb=lb;let matched=false;
-  lb.on("open",()=>{if(alive())setWait("Waiting for another player to join…")});
-  lb.on("connection",c=>{c.on("data",d=>{
-    if(!d||d.t!=="join")return;
-    if(matched){c.send({t:"busy"});return}
-    matched=true;c.send({t:"go",id:gp.id});
-    setTimeout(()=>{try{lb.destroy()}catch(e){}if(net.lb===lb)net.lb=null},800);
-    hostTimer=setTimeout(()=>{if(alive())claimLobby()},15000)})});
-  lb.on("error",e=>{if(!alive())return;try{lb.destroy()}catch(x){}if(net.lb===lb)net.lb=null;
-   if(e.type==="unavailable-id")joinLobby();else{setWait("Connection problem, retrying…");restart(3000)}});
+ gp.on("open",()=>{if(gen===net.gen)tryHub()});
+ gp.on("connection",onRoomConn);
+ gp.on("error",e=>{if(gen!==net.gen||net.started)return;
+  if(e.type==="peer-unavailable"){
+   if(net.connecting==="hub"){net.connecting=null;net.hc=null;setTimeout(()=>{if(gen===net.gen&&!net.isHub&&!net.hp)tryHub()},1000+Math.random()*1500)}
+   else if(net.connecting==="room")joinFail("That room is gone.")}
+  else if(["network","server-error","socket-error","socket-closed"].includes(e.type)&&net.stage==="entering"){$("#mwait").textContent="Connection problem, retrying…";setTimeout(()=>{if(gen===net.gen&&net.stage==="entering")startLobby()},3000)}});
+}
+// someone wants into my room
+function onRoomConn(c){
+ let done=false;
+ c.on("data",m=>{
+  if(done||!m||m.t!=="hello")return;done=true;
+  const deny=why=>{try{c.send({t:"deny",why})}catch(e){}setTimeout(()=>{try{c.close()}catch(e){}},400)};
+  if(net.conn||!net.room)return deny("full");
+  if(net.room.pw&&m.pw!==net.room.pw)return deny("password");
+  setupConn(c,"host");unregRoom();net.room=null;onMsg(m);
+ });
+}
+function setRooms(list){
+ const me=net.gp&&net.gp.id;net.rooms=(list||[]).filter(r=>r&&r.hid&&r.hid!==me);
+ renderRooms();
+ if(net.stage==="entering"&&net.gp){net.stage="lobby";net.rooms.length?showLobby():createRoom("")}
+}
+function renderRooms(){
+ for(const id of["rlist","rlist2"]){
+  const box=$("#"+id);box.textContent="";
+  if(!net.rooms.length&&id==="rlist"){const d=document.createElement("div");d.className="rempty";d.textContent="No open rooms right now.";box.appendChild(d)}
+  net.rooms.forEach(r=>{const d=document.createElement("div");d.className="room";
+   const n=document.createElement("span");n.className="rn";n.textContent=(r.locked?"🔒 ":"")+r.host+"'s room";
+   const b=document.createElement("button");b.className="btn sm go";b.textContent="JOIN";b.onclick=()=>{sfxClick();tryJoin(r)};
+   d.append(n,b);box.appendChild(d)});
  }
- function joinLobby(){
-  setWait("Found a player, connecting…");
-  const c=gp.connect(LOBBY,{reliable:true});let done=false;
-  const to=setTimeout(()=>{if(!done){done=true;try{c.close()}catch(e){}retryJoin()}},7000);
-  c.on("open",()=>c.send({t:"join"}));
-  c.on("data",d=>{if(done||!d)return;
-   if(d.t==="go"){done=true;clearTimeout(to);try{c.close()}catch(e){}connectHost(d.id)}
-   else if(d.t==="busy"){done=true;clearTimeout(to);try{c.close()}catch(e){}retryJoin()}});
- }
- function connectHost(id){
-  const c=gp.connect(id,{reliable:true});
-  const to=setTimeout(()=>{if(alive()){try{c.close()}catch(e){}retryJoin()}},9000);
-  c.on("open",()=>{if(!alive()){c.close();return}clearTimeout(to);setupConn(c,"guest");c.send({t:"hello",name:myName})});
- }
+ $("#w2").hidden=!net.rooms.length;
+}
+function showLobby(){net.stage="lobby";$("#jpw").hidden=true;scr("m-lobby");renderRooms()}
+function createRoom(pw){
+ net.room={pw:pw||""};net.stage="room";
+ $("#mwait").textContent="Waiting for another player to join…";
+ $("#wroom").hidden=false;$("#wlock").checked=!!pw;$("#wpw").hidden=$("#wset").hidden=!pw;$("#wpw").value=pw||"";
+ $("#wst").textContent=pw?"🔒 Room locked.":"Room is open to anyone.";
+ scr("m-wait");sendReg();renderRooms();
+}
+function tryJoin(r){
+ lobErr("");
+ if(r.locked){$("#jpwn").textContent=r.host;$("#jpwi").value="";$("#jpw").hidden=false;$("#jpw").dataset.hid=r.hid;net.pending=r;
+  if(!$("#m-lobby").hidden)$("#jpwi").focus();else{scr("m-lobby");$("#jpw").hidden=false;$("#jpwi").focus()}}
+ else joinRoom(r,"");
+}
+function joinRoom(r,pw){
+ if(net.conn)return;
+ if(net.room){unregRoom();net.room=null}
+ $("#jpw").hidden=true;scr("m-lobby");lobErr(`Joining ${r.host}'s room…`);
+ const gen=net.gen,c=net.gp.connect(r.hid,{reliable:true});net.connecting="room";
+ net.conn=c;net.role="guest";net.joinTo=setTimeout(()=>joinFail("Couldn't connect to that room."),9000);
+ setupConn(c,"guest");
+ c.on("open",()=>{net.connecting=null;c.send({t:"hello",name:myName,pic:myPic,pw})});
+ c.on("data",m=>{if(m&&m.t==="deny")joinFail(m.why==="password"?"Wrong password.":"That room is full or busy.")});
+}
+function joinFail(msg){
+ clearTimeout(net.joinTo);if(net.started)return;
+ const c=net.conn;net.conn=null;net.role=null;net.connecting=null;try{c&&c.close()}catch(e){}
+ showLobby();lobErr(msg);
 }
 
-// ---- menu + entering the table
-function enterGame(msg){
+// ================= MENU =================
+function enterGame(msg,pic){
  $("#menu").classList.add("gone");
  $("#dname").textContent=OPP;$("#dimg").alt=OPP;$("#dlbl").textContent=OPP+"'s hand";
+ const di=$("#dimg");di.src=pic||"assets/dealer.png";di.classList.toggle("custom",!!pic);
+ const mv=$("#myav");mv.hidden=!myPic;if(myPic)mv.src=myPic;
  say(msg);$("#go").disabled=false;
 }
-const scr=id=>document.querySelectorAll(".mscr").forEach(e=>e.hidden=e.id!==id);
+// optional profile picture (kept in this browser, shrunk to 160px)
+function setPic(p){myPic=p;const e=$("#pfimg");e.style.backgroundImage=p?`url("${p}")`:"";e.textContent=p?"":"?";$("#pfclear").hidden=!p}
+{const saved=store.get("dpp_pic");if(goodPic(saved))setPic(saved)}
+$("#pfile").onchange=e=>{
+ const f=e.target.files[0];e.target.value="";if(!f||!/^image\//.test(f.type))return;
+ const url=URL.createObjectURL(f),im=new Image();
+ im.onload=()=>{const S=160,cv=document.createElement("canvas");cv.width=cv.height=S;const x=cv.getContext("2d"),m=Math.min(im.width,im.height);
+  x.drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,0,0,S,S);URL.revokeObjectURL(url);
+  const p=cv.toDataURL("image/jpeg",.85);setPic(p);store.set("dpp_pic",p)};
+ im.onerror=()=>URL.revokeObjectURL(url);im.src=url;
+};
+$("#pfclear").onclick=()=>{sfxClick();setPic(null);store.del("dpp_pic")};
 $("#mBot").onclick=()=>{sfxClick();startMusic();mode="bot";OPP="Dealer";enterGame("Welcome! Press DEAL to start.")};
 $("#mPvp").onclick=()=>{sfxClick();startMusic();scr("m-name");$("#mname").focus()};
 $("#mBack1").onclick=()=>{sfxClick();scr("m-main")};
-const goFind=()=>{myName=clean($("#mname").value);
+const goLobby=()=>{
  if(!$("#mname").value.trim()){$("#mname").focus();$("#mname").placeholder="Please type a name!";return}
- sfxClick();scr("m-wait");setWait("Connecting…");findMatch()};
-$("#mFind").onclick=goFind;$("#mname").onkeydown=e=>{if(e.key==="Enter")goFind()};
-$("#mCancel").onclick=()=>{sfxClick();netCleanup();scr("m-main")};
+ myName=clean($("#mname").value);sfxClick();lobErr("");scr("m-wait");$("#wroom").hidden=true;$("#mwait").textContent="Connecting to the lobby…";startLobby()};
+$("#mFind").onclick=goLobby;$("#mname").onkeydown=e=>{if(e.key==="Enter")goLobby()};
+$("#mBack2").onclick=()=>{sfxClick();netCleanup();scr("m-main")};
+$("#mCancel").onclick=()=>{sfxClick();
+ if(net.room){unregRoom();net.room=null;showLobby()}else{netCleanup();scr("m-main")}};
+$("#mklock").onchange=e=>{$("#mkpw").hidden=!e.target.checked;if(e.target.checked)$("#mkpw").focus()};
+$("#mkgo").onclick=()=>{
+ const pw=$("#mklock").checked?$("#mkpw").value.trim():"";
+ if($("#mklock").checked&&!pw){$("#mkpw").focus();$("#mkpw").placeholder="Type a password!";return}
+ sfxClick();createRoom(pw)};
+$("#wlock").onchange=e=>{
+ $("#wpw").hidden=$("#wset").hidden=!e.target.checked;
+ if(e.target.checked)$("#wpw").focus();
+ else if(net.room){net.room.pw="";sendReg();$("#wst").textContent="Room is open to anyone."}};
+const setPw=()=>{const pw=$("#wpw").value.trim();if(!pw||!net.room){$("#wpw").focus();return}
+ net.room.pw=pw;sendReg();$("#wst").textContent="🔒 Room locked with that password."};
+$("#wset").onclick=()=>{sfxClick();setPw()};$("#wpw").onkeydown=e=>{if(e.key==="Enter")setPw()};
+const doJoinPw=()=>{if(net.pending)joinRoom(net.pending,$("#jpwi").value)};
+$("#jpwgo").onclick=()=>{sfxClick();doJoinPw()};$("#jpwi").onkeydown=e=>{if(e.key==="Enter")doJoinPw()};
+$("#jpwx").onclick=()=>{sfxClick();$("#jpw").hidden=true};
+// MENU button asks first
+const cf=$("#cf");
+$("#leave").onclick=()=>{sfxClick();cf.classList.add("on")};
+$("#cfstay").onclick=()=>{sfxClick();cf.classList.remove("on")};
+$("#cfleave").onclick=()=>location.reload();
+document.addEventListener("keydown",e=>{if(e.key==="Escape")cf.classList.remove("on")});
+cf.onclick=e=>{if(e.target===cf)cf.classList.remove("on")};
 $("#go").onclick=async()=>{
  sfxClick();startMusic();
  if(phase==="busy")return;
