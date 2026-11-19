@@ -44,6 +44,15 @@ Setup (one time):
 
 It uses Discord's browser-only OAuth2 flow with the `identify` scope. The access token is used once to read the username and avatar, and is never stored. Only the name and a 160px avatar are kept in the browser, so players stay logged in until they press log out. It won't work when `index.html` is opened as a local file.
 
+## Account settings
+
+On the game mode screen, **Account settings** opens a settings page with:
+- **Profile:** your Discord name and avatar (read-only here), plus a switch to hide yourself from the global leaderboard (your wins still count).
+- **Sound & motion:** sound effects and music volume, reduced motion (follow system / always reduce / full animations) and a test sound button. Saved in this browser.
+- **Discord:** refresh your Discord picture by re-linking.
+- **Your data:** download a JSON copy of your Discord info, settings and leaderboard entry.
+- **Delete account:** type your username to delete your leaderboard entry and clear everything saved in the browser.
+
 ## Global leaderboard
 
 The leaderboard counts **wins against other players only** (bot games and draws never count; playing yourself in two tabs doesn't count either). Each win is recorded by the winner's browser. It is stored in a free Firebase Realtime Database:
@@ -62,6 +71,7 @@ The leaderboard counts **wins against other players only** (bot games and draws 
         "name": { ".validate": "newData.isString() && newData.val().length <= 40" },
         "av": { ".validate": "newData.isString() && newData.val().matches(/^https:\\/\\/cdn\\.discordapp\\.com\\//)" },
         "wins": { ".validate": "newData.isNumber() && newData.val() >= (data.exists() ? data.val() : 0) && newData.val() <= (data.exists() ? data.val() : 0) + 1" },
+        "hidden": { ".validate": "newData.isBoolean()" },
         "$other": { ".validate": false }
       }
     }

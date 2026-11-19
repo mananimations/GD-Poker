@@ -459,7 +459,7 @@ function enterGame(msg,pic,chr){
 }
 let dcPic=null,dcUser=null;
 // ---- Global leaderboard (wins against other players; bot games never count)
-const LB=LEADERBOARD_DB.replace(/\/+$/,"");let lbMe=null,lbBusy=false;
+const LB=LEADERBOARD_DB.replace(/\/+$/,"");let lbMe=null,lbBusy=false,lbHidden=false;
 const okAv=u=>typeof u==="string"&&/^https:\/\/cdn\.discordapp\.com\//.test(u);
 async function lbCall(path,method,body){
  const c=new AbortController(),t=setTimeout(()=>c.abort(),8000);
@@ -480,7 +480,8 @@ async function lbRefresh(){
  if(lbBusy||!dcUser)return;lbBusy=true;
  try{
   const raw=await lbCall("/players.json","GET")||{};
-  const all=Object.entries(raw).filter(([id,p])=>p&&typeof p.name==="string"&&Number.isFinite(+p.wins)&&+p.wins>0)
+  const mineRaw=raw[myId]&&typeof raw[myId]==="object"?raw[myId]:null;lbHidden=!!(mineRaw&&mineRaw.hidden===true);
+  const all=Object.entries(raw).filter(([id,p])=>p&&typeof p.name==="string"&&Number.isFinite(+p.wins)&&+p.wins>0&&p.hidden!==true)
    .map(([id,p])=>({id,name:p.name.slice(0,14),av:p.av,wins:+p.wins})).sort((a,b)=>b.wins-a.wins||a.name.localeCompare(b.name));
   const rank=p=>1+all.filter(x=>x.wins>p.wins).length;
   box.textContent="";
@@ -488,9 +489,10 @@ async function lbRefresh(){
   let shown=false;all.slice(0,10).forEach(p=>{const me=p.id===myId;shown=shown||me;box.appendChild(lbRow(rank(p),p,me))});
   const mine=all.find(p=>p.id===myId);
   if(mine&&!shown){const g=document.createElement("div");g.className="lbr gap";g.textContent="⋯";box.append(g,lbRow(rank(mine),mine,true))}
-  lbMe=mine||{wins:0};
+  lbMe={wins:mineRaw&&Number.isFinite(+mineRaw.wins)?+mineRaw.wins:0};
   $("#mywins").textContent=lbMe.wins;
-  $("#myrank").textContent=mine?`#${rank(mine)} of ${all.length}`:"Unranked";
+  $("#myrank").textContent=lbHidden?"Hidden":mine?`#${rank(mine)} of ${all.length}`:"Unranked";
+  syncSettings();
  }catch(e){box.innerHTML='<div class="rempty">Couldn\'t load the leaderboard ('+(e.name==="AbortError"?"timed out":e.message)+').</div>'}
  lbBusy=false;
 }
@@ -506,6 +508,53 @@ async function recordWin(){
   await lbCall("/players/"+encodeURIComponent(myId)+".json","PATCH",b);lbRefresh()}catch(e){}
 }
 $("#lbref").onclick=()=>{sfxClick();if(!LB)return lbRefresh();lbStarted=true;lbRefresh()};
+// ---- Account settings screen
+const MOT_KEY="dpp_motion",DATA_KEYS=["dpp_dc","dpp_sfx","dpp_mus",MOT_KEY];
+const mq=window.matchMedia?matchMedia("(prefers-reduced-motion: reduce)"):null;
+function applyMotion(){
+ const m=store.get(MOT_KEY)||"auto",el=document.documentElement;
+ el.dataset.motion=m;el.toggleAttribute("data-reduce",m==="reduce"||(m==="auto"&&!!(mq&&mq.matches)));
+}
+applyMotion();if(mq&&mq.addEventListener)mq.addEventListener("change",applyMotion);
+function syncSettings(){
+ if(!dcUser)return;
+ $("#sname").textContent=dcUser.name;$("#sav").src=dcUser.avatar||"assets/dealer.png";$("#sdelname").textContent=dcUser.name;
+ $("#ssfx").value=$("#sfxv").value;$("#ssfxv").textContent=$("#sfxv").value+"%";
+ $("#smus").value=$("#musv").value;$("#smusv").textContent=$("#musv").value+"%";
+ $("#smot").value=store.get(MOT_KEY)||"auto";
+ const hb=$("#shide");hb.checked=!lbHidden;hb.disabled=!LB;
+ $("#shidenote").textContent=LB?"Turn off to hide your name and wins from other players. Your wins are still counted.":"Leaderboard isn't set up yet.";
+}
+const serr=t=>{$("#serr").textContent=t||""};
+$("#setopen").onclick=()=>{sfxClick();syncSettings();serr("");$("#sdelin").value="";$("#sdel").disabled=true;$("#set").hidden=false;$("#set").scrollTop=0};
+$("#setback").onclick=()=>{sfxClick();$("#set").hidden=true};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#set").hidden&&!cf.classList.contains("on"))$("#set").hidden=true});
+for(const[a,b]of[["ssfx","sfxv"],["smus","musv"]])$("#"+a).oninput=e=>{$("#"+b).value=e.target.value;$("#"+b).dispatchEvent(new Event("input"));$("#"+a+"v").textContent=e.target.value+"%"};
+$("#ssfx").onchange=()=>sfxClick();
+$("#smot").onchange=e=>{store.set(MOT_KEY,e.target.value);applyMotion()};
+$("#stest").onclick=()=>{sfxWin();setTimeout(sfxFlip,900)};
+$("#shide").onchange=async e=>{
+ if(!LB||!dcUser)return;const show=e.target.checked;serr("");
+ try{await lbCall("/players/"+encodeURIComponent(myId)+".json","PATCH",{name:dcUser.name,hidden:!show});lbHidden=!show;lbBusy=false;lbRefresh()}
+ catch(err){e.target.checked=!show;serr("Couldn't save that: "+err.message)}
+};
+$("#srefresh").onclick=()=>{sfxClick();startDiscord()};
+$("#sdata").onclick=async()=>{
+ sfxClick();serr("");if(!dcUser)return;
+ const out={exportedAt:new Date().toISOString(),discord:{id:dcUser.id,name:dcUser.name,avatar:dcUser.avatar},
+  settings:{sfxVolume:+$("#sfxv").value,musicVolume:+$("#musv").value,reducedMotion:store.get(MOT_KEY)||"auto"},leaderboard:null};
+ if(LB){try{out.leaderboard=await lbCall("/players/"+encodeURIComponent(myId)+".json","GET")}catch(e){serr("Couldn't fetch your leaderboard data, so the file doesn't include it ("+e.message+").")}}
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:"application/json"}));
+ a.download="demon-picture-poker-data.json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+};
+$("#sdelin").oninput=e=>{$("#sdel").disabled=!dcUser||e.target.value!==dcUser.name};
+$("#sdel").onclick=async()=>{
+ if(!dcUser||$("#sdelin").value!==dcUser.name)return;sfxClick();serr("");$("#sdel").disabled=true;
+ try{if(LB)await lbCall("/players/"+encodeURIComponent(myId)+".json","DELETE")}
+ catch(e){serr("Couldn't delete your leaderboard entry ("+e.message+"). Nothing was deleted, try again.");$("#sdel").disabled=false;return}
+ DATA_KEYS.forEach(store.del);
+ location.reload();
+};
 // ---- Discord login (OAuth2 implicit flow, "identify" scope only; the token is used once and never stored)
 const dcErr=t=>{$("#dcerr").textContent=t||""};
 function dcShow(){ // logged in -> main menu, otherwise the login screen
@@ -518,7 +567,7 @@ function avatarData(url){return new Promise((res,rej)=>{const im=new Image();im.
  im.onload=()=>{const o=document.createElement("canvas");o.width=o.height=160;o.getContext("2d").drawImage(im,0,0,160,160);try{res(o.toDataURL("image/jpeg",.88))}catch(e){rej(e)}};
  im.onerror=()=>rej(new Error("avatar"));im.src=url})}
 async function dcFinish(token){
- dcErr("Logging you in…");$("#dcin").disabled=true;
+ $("#dcin").disabled=true;
  try{
   const r=await fetch("https://discord.com/api/users/@me",{headers:{Authorization:"Bearer "+token}});
   if(!r.ok)throw new Error("HTTP "+r.status);const j=await r.json();
@@ -529,14 +578,14 @@ async function dcFinish(token){
  }catch(e){dcErr("Discord login failed: "+(e.message||e))}
  $("#dcin").disabled=false;
 }
-$("#dcin").onclick=()=>{sfxClick();
- if(!DISCORD_CLIENT_ID){dcErr("Discord login isn't set up yet: add your Client ID at the top of script.js.");return}
- if(location.protocol==="file:"){dcErr("Discord login needs the game to be hosted (not opened as a file).");return}
+function startDiscord(){
+ if(!DISCORD_CLIENT_ID){dcErr("Discord login isn't set up yet: add your Client ID at the top of script.js.");return false}
+ if(location.protocol==="file:"){dcErr("Discord login needs the game to be hosted (not opened as a file).");return false}
  const st=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,"0")).join("");
  try{sessionStorage.setItem("dpp_state",st)}catch(e){}
- location.href="https://discord.com/oauth2/authorize?"+new URLSearchParams({client_id:DISCORD_CLIENT_ID,response_type:"token",scope:"identify",state:st,redirect_uri:location.origin+location.pathname})
- dcErr("Opening Discord… If nothing happens, make sure this exact address is added under OAuth2 > Redirects in your Discord app: "+location.origin+location.pathname);
- setTimeout(()=>{if(document.visibilityState==="visible"&&!dcUser)dcErr("Discord didn't open. Open the game directly in its own browser tab (not inside a preview), and add this exact address under OAuth2 > Redirects in your Discord app: "+location.origin+location.pathname)},3500)};
+ location.href="https://discord.com/oauth2/authorize?"+new URLSearchParams({client_id:DISCORD_CLIENT_ID,response_type:"token",scope:"identify",state:st,redirect_uri:location.origin+location.pathname});
+ return true}
+$("#dcin").onclick=()=>{sfxClick();startDiscord()};
 $("#dcout").onclick=()=>{sfxClick();dcUser=dcPic=myPic=null;myId=myName="";lbMe=null;store.del("dpp_dc");dcErr("");scr("m-login")};
 { // coming back from Discord?
  const hp=new URLSearchParams(location.hash.slice(1)),tok=hp.get("access_token"),err=hp.get("error_description")||hp.get("error");

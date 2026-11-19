@@ -13,23 +13,25 @@
    <div id="dcerr" class="err"></div>
   </div>
   <div id="m-main" class="mscr" hidden>
-   <div id="mgrid">
-    <div class="mcard" id="macct">
-     <h3>ACCOUNT</h3>
-     <div id="dcuser"><img id="dcav" alt=""><b id="dcname"></b></div>
-     <div id="stats"><div><small>RANK</small><b id="myrank">—</b></div><div><small>WINS</small><b id="mywins">0</b></div></div>
-     <button class="link" id="dcout">log out</button>
-    </div>
-    <div class="mcard" id="mlb">
-     <h3>GLOBAL LEADERBOARD <button class="link" id="lbref" title="Refresh">↻</button></h3>
-     <div id="lblist"><div class="rempty">Loading…</div></div>
-     <small id="lbnote">Wins against other players only. Bot games don't count.</small>
-    </div>
+   <div class="mcard" id="macct">
+    <h3>ACCOUNT</h3>
+    <div id="dcuser"><img id="dcav" alt=""><b id="dcname"></b></div>
+    <div id="stats"><div><small>RANK</small><b id="myrank">—</b></div><div><small>WINS</small><b id="mywins">0</b></div></div>
+    <button class="btn sm go" id="setopen">⚙ ACCOUNT SETTINGS</button>
+    <button class="link" id="dcout">log out</button>
    </div>
-   <p>Choose how you want to play</p>
-   <button class="btn big" id="mBot" disabled>🤖 PLAY VS BOT</button>
-   <button class="btn big alt" id="mPvp" disabled>👥 PLAY VS PLAYER</button>
-   <div id="mload">Loading demons…</div>
+   <div class="mcard" id="mplay">
+    <h3>GAME MODE</h3>
+    <p>Choose how you want to play</p>
+    <button class="btn big" id="mBot" disabled>🤖 PLAY VS BOT</button>
+    <button class="btn big alt" id="mPvp" disabled>👥 PLAY VS PLAYER</button>
+    <div id="mload">Loading demons…</div>
+   </div>
+   <div class="mcard" id="mlb">
+    <h3>GLOBAL LEADERBOARD <button class="link" id="lbref" title="Refresh">↻</button></h3>
+    <div id="lblist"><div class="rempty">Loading…</div></div>
+    <small id="lbnote">Wins against other players only. Bot games don't count.</small>
+   </div>
   </div>
   <div id="m-diff" class="mscr" hidden>
    <p>Choose bot difficulty</p>
@@ -70,6 +72,37 @@
    </div>
    <button class="link" id="mCancel">cancel</button>
   </div>
+ </div>
+</div>
+<div id="set" hidden>
+ <div id="setin">
+  <div id="sethead"><button class="btn sm" id="setback">← BACK</button><h1>ACCOUNT SETTINGS</h1></div>
+  <section class="mcard"><h3>PROFILE</h3>
+   <div id="sprof"><img id="sav" alt=""><div><b id="sname"></b><small>Your username and profile picture come from your Discord account.</small></div></div>
+   <label class="srow"><input type="checkbox" id="shide"> <span>Show me on the global leaderboard<small id="shidenote"></small></span></label>
+  </section>
+  <section class="mcard"><h3>SOUND &amp; MOTION</h3>
+   <label class="srow2"><span>Sound effects</span><input type="range" id="ssfx" min="0" max="100"><b id="ssfxv"></b></label>
+   <label class="srow2"><span>Music</span><input type="range" id="smus" min="0" max="100"><b id="smusv"></b></label>
+   <label class="srow2">Reduced motion <select id="smot"><option value="auto">Follow system setting</option><option value="reduce">Always reduce motion</option><option value="full">Full animations</option></select></label>
+   <div><button class="btn sm" id="stest">TEST SOUND</button></div>
+   <small>Saved in this browser.</small>
+  </section>
+  <section class="mcard"><h3>DISCORD</h3>
+   <p>✓ Your account is linked to Discord. That's how you log in.</p>
+   <small>Changed your Discord profile picture? It updates when you log in, or right now:</small>
+   <div><button class="btn sm" id="srefresh">REFRESH DISCORD PICTURE</button></div>
+  </section>
+  <section class="mcard"><h3>YOUR DATA</h3>
+   <p>Download a copy of everything stored about your account (Discord name, avatar, leaderboard wins and your settings) as a JSON file.</p>
+   <div><button class="btn sm" id="sdata">DOWNLOAD MY DATA</button></div>
+  </section>
+  <section class="mcard danger"><h3>DELETE ACCOUNT</h3>
+   <p>This permanently deletes your leaderboard entry and wins, and clears everything saved in this browser. You can't undo this. You can log in again later, but you will start from 0 wins.</p>
+   <label class="srow2">Type your username (<b id="sdelname"></b>) to confirm <input type="text" id="sdelin" autocomplete="off"></label>
+   <div><button class="btn sm danger" id="sdel" disabled>DELETE MY ACCOUNT</button></div>
+   <div id="serr" class="err"></div>
+  </section>
  </div>
 </div>
 <div id="wrap"><aside id="bar"><h2>RARITY</h2><div id="barrows"></div></aside><div id="ds"><h1>★ DEMON PICTURE POKER ★</h1>
